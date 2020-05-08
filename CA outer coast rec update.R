@@ -1,6 +1,7 @@
 ## Use this to start every program.  This clears out previous information from memory
 rm(list=ls())
 
+## Packages
 PKG <- c("sf","tidyverse","raster","exactextractr","googledrive")
 
 for (p in PKG) {
@@ -28,26 +29,15 @@ rm(p,PKG)
 # library(corrplot)
 
 ### Dependent variable
-Depvar<-st_read("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Flickr/Years_05-17/Regularized/250m/pud_2005-2017_250m_coast.gpkg")
+Depvar<-st_read("Data/PUD_2005-2017_1000m.gpkg")
 # Convert PUD_YR_INT to PUD by multiplying by # (covering the time horizon 2005 - 2017). SWITCH to relevant input (twitter, flickr, etc.)
-Depvar$PUD<-Depvar$PUD_YR_AVG*6
+Depvar$PUD<-Depvar$PUD_YR_AVG*13
 # Add id
 Depvar$id<-seq.int(nrow(Depvar))
 
-# ## Other resolutions
-# # 1km flickr and twitter user days data
-# shapefile("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Flickr/Years_05-17/Regularized/1km/pud1km_extract.shp")
-# shapefile("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Twitter/Years_12-17/Regularized/1km/twud1km_extract.shp")
-# # 500m flickr and twitter user days data
-# shapefile("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Flickr/Years_05-17/Regularized/500m/pud500m_extract.shp")
-# shapefile("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Twitter/Years_12-17/Regularized/500m/twud500m_extract.shp")
-# # 250m flickr and twitter user days data
-# shapefile("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Flickr/Years_05-17/Regularized/250m/pud250m_extract.shp")
-# shapefile("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Twitter/Years_12-17/Regularized/250m/twud250m_extract.shp")
-
 ### Independent variables
 ## ESI
-ESI<-st_read("C:/Users/XPSXIII/Documents/Temp2/ESIL_CA.gpkg")
+ESI<-st_read("Data/ESIL_CA.gpkg")
 ESI<-st_transform(ESI, st_crs(Depvar))
 ESI<-ESI[,c("ESI","geom")]
 # Spatial join of ESI and Depvar
@@ -91,74 +81,74 @@ df<-df[which(df$types!=0),]
 rm(Depvar, ESI)
 
 ## Adjacent population derived from EPA population raster
-Pop<-raster("C:/Users/XPSXIII/Documents/Temp2/dasymetric_us_20160208.tif")
-
+Pop<-raster("Data/dasymetric_us_20160208.tif")
 # Creating a (8 mile) buffered shapefile of hexagons
-Pop.buff8m<-st_buffer(Depvar,dist=12784)
+Pop.buff8m<-st_buffer(df,dist=12784)
+Pop.buff8m<-st_transform(Pop.buff8m,st_crs(Pop))
 # Extracting sum of population raster for each buffered polygon 
-system.time(Pop.buff8m$sumpop<-exact_extract(Pop, Pop.buff8m, "sum")) #1300 - 1500s at 250m dep var resolution
+system.time(Pop.buff8m$sumpop<-exact_extract(Pop, Pop.buff8m, "sum"))
 # Merging to dataframe
-Pop.buff8m<-Pop.buff8m[,c("FID_1","sumpop")]
+Pop.buff8m<-Pop.buff8m[,c("id","sumpop")]
 Pop.buff8m$geometry<-NULL # Turns sf object into dataframe
-df<-merge(df,Pop.buff8m,"FID_1")
+df<-merge(df,Pop.buff8m,"id")
 # Removing unneeded vars
 rm(Pop,Pop.buff8m)
 
 ## Road network distance
 # Road network line shapefile
-Rd<-st_read("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/IndepVar/Roads/Rd_CA_simp.shp")
+Rd<-st_read("Data/Roads_2015.gpkg")
 Rd<-st_transform(Rd, st_crs(df))
 # Nearest distance, following https://stackoverflow.com/questions/53854803/calculate-minimum-distance-between-multiple-polygons-with-r
-index<-st_nearest_feature(df, Rd) # Takes ~ 180s @ 250m, creates an ordered list (index) of closest elements from Rd shapefile to each feature in "df"
+system.time(index<-st_nearest_feature(df, Rd)) # Creates an ordered list (index) of closest elements from Rd shapefile to each feature in "df"
 Rd<-Rd %>% slice(index) # Subsets the Rd shapefile by creating a reordered version based on the element ordering of "index"
 df$rdist<-as.vector(st_distance(df, Rd, by_element = TRUE)) # Calculates distance between two sf objects, element-by-element. as.vector removes [m] units
 rm(Rd)
 
-## Adjacent sea surface temperature (switch for twitter vs flickr analysis)
-SST<-raster("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/IndepVar/WaterTemp/twitter_GIOVANNI-g4.timeAvgMap.MODISA_L3m_SST_Monthly_4km_R2019_0_sst.20120101-20171231.125W_32N_116W_42N.tif")
-SST.buff4km<-st_buffer(Depvar,dist=4000)
-SST.buff4km<-st_transform(SST.buff4km,crs=crs(SST))
-system.time(SST.buff4km$meanSST<-exact_extract(SST, SST.buff4km, "mean")) # 23s 
-# Merging to dataframe
-SST.buff4km<-SST.buff4km[,c("FID_1","meanSST")]
-SST.buff4km$geometry<-NULL # Turns sf object into dataframe
-df<-merge(df,SST.buff4km,"FID_1")
-# Removing unneeded vars
-rm(SST,SST.buff4km)
-hist(df$meanSST)
-
 ## Adjacent precipitation
-Prec<-raster("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/IndepVar/Precip/PRISM_ppt_30yr_normal_800mM2_annual_asc.asc")
+Prec<-raster("Data/PRISM_ppt_30yr_normal_800mM2_annual.tif")
 # Creating a (8 mile) buffered shapefile of hexagons 
-Prec.buff8m<-st_buffer(Depvar,dist=12784)
+Prec.buff8m<-st_buffer(df,dist=12784)
 Prec.buff8m<-st_transform(Prec.buff8m,crs=crs(Prec))
 # Extracting mean precip for each buffered polygon 
 system.time(Prec.buff8m$meanprec<-exact_extract(Prec, Prec.buff8m, "mean")) # 40s
 # Merging to dataframe
-Prec.buff8m<-Prec.buff8m[,c("FID_1","meanprec")]
+Prec.buff8m<-Prec.buff8m[,c("id","meanprec")]
 Prec.buff8m$geometry<-NULL # Turns sf object into dataframe
-df<-merge(df,Prec.buff8m,"FID_1")
+df<-merge(df,Prec.buff8m,"id")
 # Removing unneeded vars
 rm(Prec,Prec.buff8m)
 hist(df$meanprec)
 
 ## Adjacent air temperature
-AT<-raster("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/IndepVar/AirTemp/PRISM_tmean_30yr_normal_800mM2_annual_asc.asc")
+AT<-raster("Data/PRISM_tmean_30yr_normal_800mM2_annual.tif")
 # Creating a (8 mile) buffered shapefile of hexagons 
-AT.buff8m<-st_buffer(Depvar,dist=12784)
+AT.buff8m<-st_buffer(df,dist=12784)
 AT.buff8m<-st_transform(AT.buff8m,crs=crs(AT))
 # Extracting mean precip for each buffered polygon 
 system.time(AT.buff8m$meanairt<-exact_extract(AT, AT.buff8m, "mean")) # 37s
 # Merging to dataframe
-AT.buff8m<-AT.buff8m[,c("FID_1","meanairt")]
+AT.buff8m<-AT.buff8m[,c("id","meanairt")]
 AT.buff8m$geometry<-NULL # Turns sf object into dataframe
-df<-merge(df,AT.buff8m,"FID_1")
+df<-merge(df,AT.buff8m,"id")
 # Removing unneeded vars
 rm(AT,AT.buff8m)
 hist(df$meanairt)
 
+## Adjacent sea surface temperature (switch for twitter vs flickr analysis)
+SST<-raster("Data/flickr_GIOVANNI-g4.timeAvgMap.MODISA_L3m_SST_Monthly_4km_R2019_0_sst.20050101-20171231.125W_32N_116W_42N.tif")
+SST.buff4km<-st_buffer(df,dist=4000)
+SST.buff4km<-st_transform(SST.buff4km,crs=crs(SST))
+system.time(SST.buff4km$meanSST<-exact_extract(SST, SST.buff4km, "mean")) # 23s 
+# Merging to dataframe
+SST.buff4km<-SST.buff4km[,c("id","meanSST")]
+SST.buff4km$geometry<-NULL # Turns sf object into dataframe
+df<-merge(df,SST.buff4km,"id")
+# Removing unneeded vars
+rm(SST,SST.buff4km)
+hist(df$meanSST)
+
 ## Adding "Yourcoast" data from California Coastal Commission and postprocessing
-YC<-st_read("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/IndepVar/coastal_access_locations/coastal_access_locations.shp")
+YC<-st_read("Data/coastal_access_locations.gpkg")
 YC<-st_transform(YC,st_crs(df))
 # "st_join, nearest" following https://stackoverflow.com/questions/53854803/calculate-minimum-distance-between-multiple-polygons-with-r
 index<-st_nearest_feature(df, YC) # Creates an ordered list (index) of closest elements from YC shapefile to each feature in "df"
@@ -166,9 +156,8 @@ YC<-YC %>% slice(index) # Subsets the YC shapefile by creating a reordered versi
 df$YCdist<-as.vector(st_distance(df, YC, by_element = TRUE)) # Calc dist between two sf objects, element-by-element; as.vector removes [m] units
 df<-cbind(df,YC) # Column binding
 rm(YC)
-df$geometry.1<-NULL
 # Dropping variables we are not going to use in the analysis (see google doc)
-df<-subset(df, select = -c(BLFTP_PRK, BLFTP_TRLS, BLUFF, DOG_FRIEND, DUNES, EZ4STROLLE, PCNC_AREA, RKY_SHORE, SNDY_BEACH, TIDEPOOL, VISTOR_CTR, VOLLEYBALL, WLDLFE_VWG, COUNTY, CountyNum, DISTRICT, Descriptio, GEOGR_AREA, ID, LATITUDE, LONGITUDE, LIST_ORDER, LocationMo, NameMobile, PHONE_NMBR, Photo_1, Photo_2, Photo_3, Photo_4, Bch_whlchr))
+df<-subset(df, select = -c(BLFTP_PRK, BLFTP_TRLS, BLUFF, DOG_FRIEND, DUNES, EZ4STROLLE, PCNC_AREA, RKY_SHORE, SNDY_BEACH, TIDEPOOL, VISTOR_CTR, VOLLEYBALL, WLDLFE_VWG, COUNTY, CountyNum, DISTRICT, Descriptio, GEOGR_AREA, ID, LATITUDE, LONGITUDE, LIST_ORDER, LocationMo, NameMobile, PHONE_NMBR, Photo_1, Photo_2, Photo_3, Photo_4, Bch_whlchr, geom))
 # all "no" to zero, and all "yes" to 1 for indicator variables, Note, there are a range of values here {?, No, Yes, Yes?, yes, no, NO} and we recode these as {0, 0, 1, 1, 1, 0, 0} where 1 == yes and 0 == no.
 df<-rapply(df, as.character, classes="factor", how="replace") # Factors as character https://stackoverflow.com/questions/2851015/convert-data-frame-columns-from-factors-to-characters
 df <- df %>% 
@@ -181,6 +170,43 @@ df$BT_FACIL_T<-ifelse(is.na(df$BT_FACIL_T),0,ifelse(df$BT_FACIL_T==0,0,1))
 # Bike path seems to have a coding error (10 instead of 1)
 df$BIKE_PATH<-ifelse(df$BIKE_PATH==10,1,df$BIKE_PATH)
 df<-rapply(df, as.numeric, classes="character", how="replace") # Character as numeric
+
+## Water trail (existing sites as of 2016)
+WT<-st_read("Data/WaterTrailSites_July2016.gpkg")
+WT<-WT[,c("WaterTrail","geom")]
+WT<-st_transform(WT,st_crs(df))
+# Spatial join
+df<-st_join(df,WT)
+df$WaterTrail<-ifelse(is.na(df$WaterTrail),0,df$WaterTrail)
+rm(WT)
+
+## Bay trail
+BT<-st_read("Data/Mar_2018_BayTrail.gpkg")
+# When were certain sections built? Allow querying
+BT<-BT[which(BT$STATUS=="Existing"),] # Only currently existing projects
+BT$Year_Compl<-as.character(BT$Year_Compl)
+BT$Year_Compl<-ifelse(is.na(BT$Year_Compl),1989,
+                      ifelse(BT$Year_Compl=="pre-1989",1989,BT$Year_Compl)) # Assuming all NAs are 1989 or prior
+BT$Year_Compl<-as.numeric(BT$Year_Compl)
+# Filter by year here
+#BT<-BT[which(BT$YearCompl<=2004),]
+# Indicator variable
+BT$BayTrail<-1
+BT<-BT[,c("BayTrail","geom")]
+# Spatial join
+df<-st_join(df,BT)
+df<-unique(df) # Two or more lines may exist within one hexagon - only need one
+df$BayTrail[is.na(df$BayTrail)]<-0 # Replacing NAs with zero
+rm(BT)
+
+## Distance to marsh
+
+## SFEI shoreline inventory
+
+
+
+
+
 
 ## Exporting data for regression analysis in STATA
 #write.csv(df, "C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/t_dataframe_CA_500m.csv")
