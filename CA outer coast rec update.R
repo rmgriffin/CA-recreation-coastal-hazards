@@ -1,7 +1,7 @@
 ## Use this to start every program.  This clears out previous information from memory
 rm(list=ls())
 
-PKG <- c("sf","tidyverse","raster","exactextractr")
+PKG <- c("sf","tidyverse","raster","exactextractr","googledrive")
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -10,23 +10,6 @@ for (p in PKG) {
 }
 rm(p,PKG)
 
-# # Loading rgdal library (needed for shapefiles, various geoprocessing)
-# library(rgdal)
-# # Loading raster library (used to append dataframes to a shapefile)
-# library(raster)
-# # Loading plyr library (used for renaming columns in data frame: http://www.cookbook-r.COM/Manipulating_data/Renaming_columns_in_a_data_frame/)
-# library(plyr)
-# # Loading dbfs https://www.datacamp.COM/COMmunity/tutorials/importing-data-r-part-two
-# library(foreign)
-# # Faster raster manipulation https://stackoverflow.com/questions/43439758/function-to-return-values-velox-raster
-# library(velox)
-# # Library that contains features for conducting a spatial join
-# library(sp)
-# # Library to do column binding to a polygon attribute table
-# library(maptools)
-# # Libraries for summary statistics https://dabblingwithdata-wordpress-com.cdn.ampproject.org/v/s/dabblingwithdata.wordpress.com/2018/01/02/my-favourite-r-package-for-summarising-data/amp/?amp_js_v=0.1#referrer=https%3A%2F%2Fwww.google.com&amp_tf=From%20%251%24s&ampshare=https%3A%2F%2Fdabblingwithdata.wordpress.com%2F2018%2F01%2F02%2Fmy-favourite-r-package-for-summarising-data%2F
-# library(psych) # "describe" and "describeBy"
-# library(summarytools) # dfSummary
 # # Library for negative binomial regression
 # library(MASS)
 # # Library for rootogram for negative binomial regression
@@ -45,10 +28,11 @@ rm(p,PKG)
 # library(corrplot)
 
 ### Dependent variable
-Depvar<-st_read("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Twitter/Years_12-17/Regularized/250m/twud250m_extract.shp")
-Depvar$FID_1<-as.numeric(Depvar$FID_1)
+Depvar<-st_read("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/DepVar/Flickr/Years_05-17/Regularized/250m/pud_2005-2017_250m_coast.gpkg")
 # Convert PUD_YR_INT to PUD by multiplying by # (covering the time horizon 2005 - 2017). SWITCH to relevant input (twitter, flickr, etc.)
 Depvar$PUD<-Depvar$PUD_YR_AVG*6
+# Add id
+Depvar$id<-seq.int(nrow(Depvar))
 
 # ## Other resolutions
 # # 1km flickr and twitter user days data
@@ -63,15 +47,11 @@ Depvar$PUD<-Depvar$PUD_YR_AVG*6
 
 ### Independent variables
 ## ESI
-ESI<-st_read("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/IndepVar/ESI/Combine/ESIL_CA_ta_prep.shp")
-# Histogram of lengths of coastline represented in the ESI layer
-hist(ESI$LENGTH, breaks = 1000, xlim = c(0,1000))
+ESI<-st_read("C:/Users/XPSXIII/Documents/Temp2/ESIL_CA.gpkg")
+ESI<-st_transform(ESI, st_crs(Depvar))
+ESI<-ESI[,c("ESI","geom")]
 # Spatial join of ESI and Depvar
-# Convert shapefiles to SF objects for spatial join
-ESI<-st_as_sf(ESI)
-Depvar<-st_as_sf(Depvar)
 df<-st_join(Depvar,ESI) # Spatial join
-df$LENGTH<-NULL # Removing length variable from ESI
 df$ESI<-as.character(df$ESI)
 # Create a dataframe of only unique values (combinations of classes) within each hexagon
 df<-unique(df)
@@ -85,6 +65,7 @@ df$x3b<-ifelse(df$I1 == "3B",1, ifelse(df$I2 == "3B", 1, ifelse(df$I3 == "3B",1,
 df$x4<-ifelse(df$I1 == "4",1, ifelse(df$I2 == "4", 1, ifelse(df$I3 == "4",1,0)))
 df$x5<-ifelse(df$I1 == "5",1, ifelse(df$I2 == "5", 1, ifelse(df$I3 == "5",1,0)))
 df$x6a<-ifelse(df$I1 == "6A",1, ifelse(df$I2 == "6A", 1, ifelse(df$I3 == "6A",1,0)))
+df$x7<-ifelse(df$I1 == "7",1, ifelse(df$I2 == "7", 1, ifelse(df$I3 == "7",1,0)))
 df$x6b<-ifelse(df$I1 == "6B",1, ifelse(df$I2 == "6B", 1, ifelse(df$I3 == "6B",1,0)))
 df$x8a<-ifelse(df$I1 == "8A",1, ifelse(df$I2 == "8A", 1, ifelse(df$I3 == "8A",1,0)))
 df$x8b<-ifelse(df$I1 == "8B",1, ifelse(df$I2 == "8B", 1, ifelse(df$I3 == "8B",1,0)))
@@ -96,14 +77,22 @@ df$xU<-ifelse(df$I1 == "U",1, ifelse(df$I2 == "U", 1, ifelse(df$I3 == "U",1,0)))
 # Replace NAs with zeros
 df[is.na(df)]<-0
 # Aggregating data by factor (observation is a hexagon, unique by FID_1). "Max" ensures we get a 1, even when there are multiple 1's for the same class per hexagon
-df<-subset(df, select = c("FID_1","x1a","x1b","x2a","x3a","x3b","x4","x5","x6a","x6b","x8a","x8b","x8c","x9a","x9b","x10a","xU"))
-df$geometry<-NULL
-df<-aggregate(. ~ FID_1,df,max)
+df<-subset(df, select = c("id","x1a","x1b","x2a","x3a","x3b","x4","x5","x6a","x6b","x7","x8a","x8b","x8c","x9a","x9b","x10a","xU"))
+df$geom<-NULL
+df<-aggregate(. ~ id,df,max)
 # Rejoinging aggregated data to hexagons
-df<-merge(Depvar,df,"FID_1")
+df<-merge(Depvar,df,"id")
+# Lots of observations that do not overlap shoreline layer
+df$types<-df$x1a+df$x1b+df$x2a+df$x3a+df$x3b+df$x4+df$x5+df$x6a+df$x6b+df$x7+df$x8a+df$x8b+df$x8c+df$x9a+df$x9b+df$x10a+df$xU
+table(df$types)
+df<-df[which(df$types!=0),]
+#st_write(df,dsn="validation.gpkg",layer="df")
+# Removing unneeded vars
+rm(Depvar, ESI)
 
 ## Adjacent population derived from EPA population raster
-Pop<-raster("C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/IndepVar/Pop/Outer_CA_Pop_8mile_p.tif")
+Pop<-raster("C:/Users/XPSXIII/Documents/Temp2/dasymetric_us_20160208.tif")
+
 # Creating a (8 mile) buffered shapefile of hexagons
 Pop.buff8m<-st_buffer(Depvar,dist=12784)
 # Extracting sum of population raster for each buffered polygon 
