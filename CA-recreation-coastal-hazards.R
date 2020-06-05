@@ -29,12 +29,12 @@ rm(p,PKG)
 # library(corrplot)
 
 ### Dependent variables
-Flickr<-st_read("Data/PUD_2005-2017_1000m.gpkg")
+Flickr<-st_read("Data/PUD_2005-2017_500m.gpkg")
 # Convert PUD_YR_INT to PUD by multiplying by # (covering the time horizon 2005 - 2017). SWITCH to relevant input (twitter, flickr, etc.)
 Flickr$PUD<-Flickr$PUD_YR_AVG*13
 # Add id
 Flickr$id<-seq.int(nrow(Flickr))
-Twitter<-st_read("Data/TUD_2012-2017_1000m.gpkg")
+Twitter<-st_read("Data/TUD_2012-2017_500m.gpkg")
 Flickr$TUD<-Twitter$PUD_YR_AVG*6
 Depvar<-Flickr[,c("PUD","TUD","id")]
 rm(Flickr,Twitter)
