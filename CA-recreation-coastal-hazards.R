@@ -216,7 +216,8 @@ DM<-DM %>% slice(index) # Subsets the Rd shapefile by creating a reordered versi
 df$wtlddist<-as.vector(st_distance(df, DM, by_element = TRUE)) # Calculates distance between two sf objects, element-by-element. as.vector removes [m] units
 rm(DM)
 
-## SFEI SF Bay shoreline inventory
+## SFEI SF Bay shoreline inventory 
+# Note: Only captures locations in SF Bay Shoreline Inventory that overlay with NOAA ESI, which discards roughly 50% of data from the inventory
 SF<-st_read("Data/SF_Bay_Shoreline_Inventory.gpkg")
 SF<-st_transform(SF,st_crs(df))
 SF<-SF[,c("Class","geom")]
@@ -242,10 +243,10 @@ df1<-aggregate(. ~ id,df1,max) # Max value of each indicator variable, by id. Ge
 df<-merge(df,df1,"id")
 #st_write(df1,dsn="validation.gpkg",layer="df1")
 # Removing unneeded vars
-rm(df1)
-
-
-
+rm(df1, SF)
+# Indicator for membership in SF Bay
+df$SF<-df$berm+df$channel+df$sps+df$embank+df$levee+df$floodwall+df$naturalshore+df$trans+df$watercontrol+df$wetland
+df$SF<-ifelse(df$SF>0,1,0)
 
 
 ## Exporting data for regression analysis in STATA
