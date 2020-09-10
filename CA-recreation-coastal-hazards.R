@@ -1,6 +1,10 @@
 ## Use this to start every program.  This clears out previous information from memory
 rm(list=ls())
 
+## Initalize renv for library lockfile
+library(renv)
+renv::init()
+
 ## Packages
 PKG <- c("sf","tidyverse","raster","exactextractr","googledrive")
 
@@ -10,6 +14,9 @@ for (p in PKG) {
     require(p,character.only = TRUE)}
 }
 rm(p,PKG)
+
+## Snapshot of libraries used
+renv::snapshot()
 
 # # Library for negative binomial regression
 # library(MASS)
@@ -247,7 +254,6 @@ rm(df1, SF)
 # Indicator for membership in SF Bay
 df$SF<-df$berm+df$channel+df$sps+df$embank+df$levee+df$floodwall+df$naturalshore+df$trans+df$watercontrol+df$wetland
 df$SF<-ifelse(df$SF>0,1,0)
-
 
 ## Exporting data for regression analysis in STATA
 #write.csv(df, "C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/t_dataframe_CA_500m.csv")
