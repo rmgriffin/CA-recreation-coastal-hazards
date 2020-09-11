@@ -3,10 +3,12 @@ rm(list=ls())
 
 ## Initalize renv for library lockfile
 library(renv)
-renv::init()
+#renv::init()
 
 ## Packages
-PKG <- c("sf","tidyverse","raster","exactextractr","googledrive")
+Sys.setenv(RENV_PATHS_RTOOLS = "C:/rtools40/") # https://github.com/rstudio/renv/issues/225
+
+PKG <- c("sf","tidyverse","raster","exactextractr","googledrive", "rgdal")
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -34,6 +36,21 @@ renv::snapshot()
 # library(pscl)
 # # Library for correlograms
 # library(corrplot)
+
+### Downloading data
+dir.create(file.path('Data'), recursive = TRUE)
+folder_url<-"https://drive.google.com/open?id=1mBXEDzc2hBnOa2bxKmg6P9Oz8taR9rTt"
+folder<-drive_get(as_id(folder_url))
+files<-drive_ls(folder)
+dl<-function(files){
+  walk(files, ~ drive_download(as_id(.x), overwrite = TRUE))
+}
+setwd("./Data")
+system.time(map(files$id,dl))
+system.time(unzip("Data.zip", exdir = "."))
+file.remove("Data.zip")
+setwd("..")
+rm(files, folder, folder_url, dl)
 
 ### Dependent variables
 Flickr<-st_read("Data/PUD_2005-2017_500m.gpkg")
@@ -115,7 +132,7 @@ Rd<-Rd %>% slice(index) # Subsets the Rd shapefile by creating a reordered versi
 df$rdist<-as.vector(st_distance(df, Rd, by_element = TRUE)) # Calculates distance between two sf objects, element-by-element. as.vector removes [m] units
 rm(Rd)
 
-## Adjacent precipitation
+## Adjacent precipitation - REVISIT, extract data for appropriate time range for flickr/twitter
 Prec<-raster("Data/PRISM_ppt_30yr_normal_800mM2_annual.tif")
 # Creating a (8 mile) buffered shapefile of hexagons 
 Prec.buff8m<-st_buffer(df,dist=12784)
@@ -130,7 +147,7 @@ df<-merge(df,Prec.buff8m,"id")
 rm(Prec,Prec.buff8m)
 hist(df$meanprec)
 
-## Adjacent air temperature
+## Adjacent air temperature - REVISIT, extract data for appropriate time range for flickr/twitter
 AT<-raster("Data/PRISM_tmean_30yr_normal_800mM2_annual.tif")
 # Creating a (8 mile) buffered shapefile of hexagons 
 AT.buff8m<-st_buffer(df,dist=12784)
@@ -145,7 +162,7 @@ df<-merge(df,AT.buff8m,"id")
 rm(AT,AT.buff8m)
 hist(df$meanairt)
 
-## Adjacent sea surface temperature (switch for twitter vs flickr analysis)
+## Adjacent sea surface temperature (switch for twitter vs flickr analysis) - REVISIT, extract data for appropriate time range for flickr/twitter
 SST<-raster("Data/flickr_GIOVANNI-g4.timeAvgMap.MODISA_L3m_SST_Monthly_4km_R2019_0_sst.20050101-20171231.125W_32N_116W_42N.tif")
 SST.buff<-st_buffer(df,dist=15000)
 SST.buff<-st_transform(SST.buff,crs=crs(SST))
@@ -223,37 +240,37 @@ DM<-DM %>% slice(index) # Subsets the Rd shapefile by creating a reordered versi
 df$wtlddist<-as.vector(st_distance(df, DM, by_element = TRUE)) # Calculates distance between two sf objects, element-by-element. as.vector removes [m] units
 rm(DM)
 
-## SFEI SF Bay shoreline inventory 
-# Note: Only captures locations in SF Bay Shoreline Inventory that overlay with NOAA ESI, which discards roughly 50% of data from the inventory
-SF<-st_read("Data/SF_Bay_Shoreline_Inventory.gpkg")
-SF<-st_transform(SF,st_crs(df))
-SF<-SF[,c("Class","geom")]
-# Setting up a temporary dataframe w/indicator variables for classes to join back to main dataframe
-df1<-st_join(df,SF) # Spatial join
-df1$Class<-as.character(df1$Class) 
-df1<-unique(df1) # Create a dataframe of only unique values (combinations of classes) within each hexagon
-df1$berm<-ifelse(df1$Class=="Berm",1,0)
-df1$channel<-ifelse(df1$Class=="Channel or Opening",1,0)
-df1$sps<-ifelse(df1$Class=="Shoreline Protection Structure",1,0)
-df1$embank<-ifelse(df1$Class=="Embankment",1,0)
-df1$levee<-ifelse(df1$Class=="Engineered Levee",1,0)
-df1$floodwall<-ifelse(df1$Class=="Floodwall",1,0)
-df1$naturalshore<-ifelse(df1$Class=="Natural Shoreline",1,0)
-df1$trans<-ifelse(df1$Class=="Transportation Structure",1,0)
-df1$watercontrol<-ifelse(df1$Class=="Water Control Structure",1,0)
-df1$wetland<-ifelse(df1$Class=="Wetland",1,0)
-df1<-subset(df1, select = c("id","berm","channel","sps","embank","levee","floodwall","naturalshore","trans","watercontrol","wetland"))
-df1$geometry<-NULL
-df1[is.na(df1)]<-0 # Replace NAs with zeros
-df1<-aggregate(. ~ id,df1,max) # Max value of each indicator variable, by id. Generates binary indicator even when class present > 1 times.
-# Rejoinging aggregated data to hexagons
-df<-merge(df,df1,"id")
-#st_write(df1,dsn="validation.gpkg",layer="df1")
-# Removing unneeded vars
-rm(df1, SF)
-# Indicator for membership in SF Bay
-df$SF<-df$berm+df$channel+df$sps+df$embank+df$levee+df$floodwall+df$naturalshore+df$trans+df$watercontrol+df$wetland
-df$SF<-ifelse(df$SF>0,1,0)
+# ## SFEI SF Bay shoreline inventory 
+# # Note: Only captures locations in SF Bay Shoreline Inventory that overlay with NOAA ESI, which discards roughly 50% of data from the inventory
+# SF<-st_read("Data/SF_Bay_Shoreline_Inventory.gpkg")
+# SF<-st_transform(SF,st_crs(df))
+# SF<-SF[,c("Class","geom")]
+# # Setting up a temporary dataframe w/indicator variables for classes to join back to main dataframe
+# df1<-st_join(df,SF) # Spatial join
+# df1$Class<-as.character(df1$Class) 
+# df1<-unique(df1) # Create a dataframe of only unique values (combinations of classes) within each hexagon
+# df1$berm<-ifelse(df1$Class=="Berm",1,0)
+# df1$channel<-ifelse(df1$Class=="Channel or Opening",1,0)
+# df1$sps<-ifelse(df1$Class=="Shoreline Protection Structure",1,0)
+# df1$embank<-ifelse(df1$Class=="Embankment",1,0)
+# df1$levee<-ifelse(df1$Class=="Engineered Levee",1,0)
+# df1$floodwall<-ifelse(df1$Class=="Floodwall",1,0)
+# df1$naturalshore<-ifelse(df1$Class=="Natural Shoreline",1,0)
+# df1$trans<-ifelse(df1$Class=="Transportation Structure",1,0)
+# df1$watercontrol<-ifelse(df1$Class=="Water Control Structure",1,0)
+# df1$wetland<-ifelse(df1$Class=="Wetland",1,0)
+# df1<-subset(df1, select = c("id","berm","channel","sps","embank","levee","floodwall","naturalshore","trans","watercontrol","wetland"))
+# df1$geometry<-NULL
+# df1[is.na(df1)]<-0 # Replace NAs with zeros
+# df1<-aggregate(. ~ id,df1,max) # Max value of each indicator variable, by id. Generates binary indicator even when class present > 1 times.
+# # Rejoinging aggregated data to hexagons
+# df<-merge(df,df1,"id")
+# #st_write(df1,dsn="validation.gpkg",layer="df1")
+# # Removing unneeded vars
+# rm(df1, SF)
+# # Indicator for membership in SF Bay
+# df$SF<-df$berm+df$channel+df$sps+df$embank+df$levee+df$floodwall+df$naturalshore+df$trans+df$watercontrol+df$wetland
+# df$SF<-ifelse(df$SF>0,1,0)
 
 ## Exporting data for regression analysis in STATA
 #write.csv(df, "C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/t_dataframe_CA_500m.csv")
