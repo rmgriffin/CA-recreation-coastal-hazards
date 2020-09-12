@@ -6,7 +6,7 @@ library(renv)
 #renv::init()
 
 ## Packages
-Sys.setenv(RENV_PATHS_RTOOLS = "C:/rtools40/") # https://github.com/rstudio/renv/issues/225
+#Sys.setenv(RENV_PATHS_RTOOLS = "C:/rtools40/") # https://github.com/rstudio/renv/issues/225
 
 PKG <- c("sf","tidyverse","raster","exactextractr","googledrive", "rgdal")
 
@@ -132,49 +132,6 @@ Rd<-Rd %>% slice(index) # Subsets the Rd shapefile by creating a reordered versi
 df$rdist<-as.vector(st_distance(df, Rd, by_element = TRUE)) # Calculates distance between two sf objects, element-by-element. as.vector removes [m] units
 rm(Rd)
 
-## Adjacent precipitation - REVISIT, extract data for appropriate time range for flickr/twitter
-Prec<-raster("Data/PRISM_ppt_30yr_normal_800mM2_annual.tif")
-# Creating a (8 mile) buffered shapefile of hexagons 
-Prec.buff8m<-st_buffer(df,dist=12784)
-Prec.buff8m<-st_transform(Prec.buff8m,crs=crs(Prec))
-# Extracting mean precip for each buffered polygon 
-system.time(Prec.buff8m$meanprec<-exact_extract(Prec, Prec.buff8m, "mean")) # 40s
-# Merging to dataframe
-Prec.buff8m<-Prec.buff8m[,c("id","meanprec")]
-Prec.buff8m$geometry<-NULL # Turns sf object into dataframe
-df<-merge(df,Prec.buff8m,"id")
-# Removing unneeded vars
-rm(Prec,Prec.buff8m)
-hist(df$meanprec)
-
-## Adjacent air temperature - REVISIT, extract data for appropriate time range for flickr/twitter
-AT<-raster("Data/PRISM_tmean_30yr_normal_800mM2_annual.tif")
-# Creating a (8 mile) buffered shapefile of hexagons 
-AT.buff8m<-st_buffer(df,dist=12784)
-AT.buff8m<-st_transform(AT.buff8m,crs=crs(AT))
-# Extracting mean precip for each buffered polygon 
-system.time(AT.buff8m$meanairt<-exact_extract(AT, AT.buff8m, "mean")) # 37s
-# Merging to dataframe
-AT.buff8m<-AT.buff8m[,c("id","meanairt")]
-AT.buff8m$geometry<-NULL # Turns sf object into dataframe
-df<-merge(df,AT.buff8m,"id")
-# Removing unneeded vars
-rm(AT,AT.buff8m)
-hist(df$meanairt)
-
-## Adjacent sea surface temperature (switch for twitter vs flickr analysis) - REVISIT, extract data for appropriate time range for flickr/twitter
-SST<-raster("Data/flickr_GIOVANNI-g4.timeAvgMap.MODISA_L3m_SST_Monthly_4km_R2019_0_sst.20050101-20171231.125W_32N_116W_42N.tif")
-SST.buff<-st_buffer(df,dist=15000)
-SST.buff<-st_transform(SST.buff,crs=crs(SST))
-system.time(SST.buff$meanSST<-exact_extract(SST, SST.buff, "mean")) 
-# Merging to dataframe
-SST.buff<-SST.buff[,c("id","meanSST")]
-SST.buff$geometry<-NULL # Turns sf object into dataframe
-df<-merge(df,SST.buff,"id")
-# Removing unneeded vars
-rm(SST,SST.buff)
-hist(df$meanSST)
-
 ## Adding "Yourcoast" data from California Coastal Commission and postprocessing
 YC<-st_read("Data/coastal_access_locations.gpkg")
 YC<-st_transform(YC,st_crs(df))
@@ -189,9 +146,9 @@ df<-subset(df, select = -c(BLFTP_PRK, BLFTP_TRLS, BLUFF, DOG_FRIEND, DUNES, EZ4S
 # all "no" to zero, and all "yes" to 1 for indicator variables, Note, there are a range of values here {?, No, Yes, Yes?, yes, no, NO} and we recode these as {0, 0, 1, 1, 1, 0, 0} where 1 == yes and 0 == no.
 df<-rapply(df, as.character, classes="factor", how="replace") # Factors as character https://stackoverflow.com/questions/2851015/convert-data-frame-columns-from-factors-to-characters
 df <- df %>% 
-    mutate_if(is.character,funs(str_replace(., c("\\?|No|NO|no"), "0"))) # http://www2.stat.duke.edu/~cr173/Sta523_Fa15/regex.html
+  mutate_if(is.character,funs(str_replace(., c("\\?|No|NO|no"), "0"))) # http://www2.stat.duke.edu/~cr173/Sta523_Fa15/regex.html
 df <- df %>% 
-    mutate_if(is.character,funs(str_replace(., c("Yes|yes|Yes\\?"), "1")))
+  mutate_if(is.character,funs(str_replace(., c("Yes|yes|Yes\\?"), "1")))
 # Boating facilities (is different from "BOATING", though mostly overlap)
 table(df$BT_FACIL_T) # An array of facilities, assign 1 if something, 0 if nothing
 df$BT_FACIL_T<-ifelse(is.na(df$BT_FACIL_T),0,ifelse(df$BT_FACIL_T==0,0,1))
@@ -238,7 +195,65 @@ DM<-st_transform(DM, st_crs(df))
 system.time(index<-st_nearest_feature(df, DM)) # Creates an ordered list (index) of closest elements from Rd shapefile to each feature in "df"
 DM<-DM %>% slice(index) # Subsets the Rd shapefile by creating a reordered version based on the element ordering of "index"
 df$wtlddist<-as.vector(st_distance(df, DM, by_element = TRUE)) # Calculates distance between two sf objects, element-by-element. as.vector removes [m] units
-rm(DM)
+rm(DM, index)
+
+## Adjacent precipitation
+rs.f<-list.files("./Data/Prism Precip", full.names = TRUE)
+rs.t<-rs.f[8:13]
+s.f<-stack(rs.f)
+s.t<-stack(rs.t)
+# Creating a (8 mile) buffered shapefile of hexagons 
+Prec.buff8m<-st_buffer(df,dist=12784)
+Prec.buff8m<-st_transform(Prec.buff8m,crs=crs(s.f))
+Prec.buff8m<-subset(Prec.buff8m, select = c(id,geometry))
+# Extracting mean precip for each buffered polygon 
+system.time(Prec.buff8m$meanprecf<-rowMeans(exact_extract(s.f, Prec.buff8m, "mean")))
+system.time(Prec.buff8m$meanprect<-rowMeans(exact_extract(s.t, Prec.buff8m, "mean")))
+# Merging to dataframe
+Prec.buff8m<-Prec.buff8m[,c("id","meanprecf","meanprect")]
+Prec.buff8m$geometry<-NULL # Turns sf object into dataframe
+df<-merge(df,Prec.buff8m,"id")
+# Removing unneeded vars
+rm(s.f,s.t,Prec.buff8m,rs.f,rs.t)
+
+## Adjacent air temperature
+rs.f<-list.files("./Data/Prism Mean Temp", full.names = TRUE)
+rs.t<-rs.f[8:13]
+s.f<-stack(rs.f)
+s.t<-stack(rs.t)
+# Creating a (8 mile) buffered shapefile of hexagons 
+AT.buff8m<-st_buffer(df,dist=12784)
+AT.buff8m<-st_transform(AT.buff8m,crs=crs(s.f))
+AT.buff8m<-subset(AT.buff8m, select = c(id,geometry))
+# Extracting mean air temp for each buffered polygon 
+system.time(AT.buff8m$meanatf<-rowMeans(exact_extract(s.f, AT.buff8m, "mean")))
+system.time(AT.buff8m$meanatt<-rowMeans(exact_extract(s.t, AT.buff8m, "mean")))
+# Merging to dataframe
+AT.buff8m<-AT.buff8m[,c("id","meanatf","meanatt")]
+AT.buff8m$geometry<-NULL # Turns sf object into dataframe
+df<-merge(df,AT.buff8m,"id")
+# Removing unneeded vars
+rm(AT,AT.buff8m,s.f,s.t,rs.f,rs.t)
+
+## Adjacent sea surface temperature (switch for twitter vs flickr analysis) - REVISIT, extract data for appropriate time range for flickr/twitter
+SSTf<-raster("Data/flickr_GIOVANNI-g4.timeAvgMap.MODISA_L3m_SST_Monthly_4km_R2019_0_sst.20050101-20171231.125W_32N_116W_42N.tif")
+SSTt<-raster("Data/twitter_GIOVANNI-g4.timeAvgMap.MODISA_L3m_SST_Monthly_4km_R2019_0_sst.20120101-20171231.125W_32N_116W_42N.tif")
+# Creating a (15km) buffered shapefile of hexagons
+SST.buff<-st_buffer(df,dist=15000)
+SST.buff<-st_transform(SST.buff,crs=crs(SSTf))
+# Extracting mean sea surface temp for each buffered polygon
+system.time(SST.buff$meanSSTf<-exact_extract(SSTf, SST.buff, "mean"))
+system.time(SST.buff$meanSSTt<-exact_extract(SSTt, SST.buff, "mean"))
+# Merging to dataframe
+SST.buff<-SST.buff[,c("id","meanSSTf","meanSSTt")]
+SST.buff$geometry<-NULL # Turns sf object into dataframe
+df<-merge(df,SST.buff,"id")
+# Removing unneeded vars
+rm(SST,SST.buff,SSTf,SSTt)
+
+
+## Transferring to long format to incorporate variables that differ between flickr/twitter time frames
+
 
 # ## SFEI SF Bay shoreline inventory 
 # # Note: Only captures locations in SF Bay Shoreline Inventory that overlay with NOAA ESI, which discards roughly 50% of data from the inventory
