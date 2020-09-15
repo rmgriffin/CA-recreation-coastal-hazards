@@ -1,0 +1,43 @@
+---
+title: "Data exploration"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+rm(list=ls()) # Clears workspace
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
+
+# Packages
+PKG <- c("tidyverse","knitr", "renv") 
+
+for (p in PKG) {
+  if(!require(p,character.only = TRUE)) {  
+    install.packages(p)
+    require(p,character.only = TRUE)}
+}
+rm(PKG,p)
+renv::snapshot()
+
+```
+
+## Analysis summary
+
+This work estimates the effect of different sea-level rise adaptation strategies on adjacent recreation on the shoreline in California. This employs correlational regression methods, using geotagged social media data as a proxy for relative visitation to coastal areas alongside the primary adaptation strategy predictors and other relevant geospatial covariates. 
+
+Traditionally engineered structures, as well as natural and nature-based features, can provide flood and erosion defense from coastal storms and sea level rise; however, a comprehensive understanding of the full suite of benefits of these strategies is necessary to understand the overall merits of different approaches. We present research investigating the differential effect of various shoreline protection strategies on recreation. Recreation is a vital contributor to coastal economies and social welfare in coastal communities that relies critically on the condition of the shoreline. 
+
+Visitation is proxied via geotagged social media data from Flickr and Twitter. These are measured as average annual user days, from 2005 - 2017 for Flickr and 2012 - 2017 for Twitter. Values are extracted for cells within a hexagonal tessalation that intersect with the NOAA Environmental Sensitivity Index polyline for the California coastline. The user day counts are treated as a proxy for relative visitation and are the dependent variable in the visitation model.  
+
+
+
+```{r data, include=FALSE}
+df<-read_csv("results.csv")
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
