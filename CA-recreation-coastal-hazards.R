@@ -282,7 +282,7 @@ rm(file.f,file.t)
 results$hres<-ifelse(results$hres==1, 1000,
                      ifelse(results$hres==2, 500, 250))
 
-write.csv(results,"results.csv")
+write.csv(results,"results.csv",row.names = FALSE)
 
 unlink("./Data", recursive = TRUE) # Delete data directory
 
@@ -317,12 +317,6 @@ unlink("./Data", recursive = TRUE) # Delete data directory
 # # Indicator for membership in SF Bay
 # df$SF<-df$berm+df$channel+df$sps+df$embank+df$levee+df$floodwall+df$naturalshore+df$trans+df$watercontrol+df$wetland
 # df$SF<-ifelse(df$SF>0,1,0)
-
-## Exporting data for regression analysis in STATA
-#write.csv(df, "C:/Users/XPSXIII/Documents/Stanford/California/Recreation/Data/Outer/t_dataframe_CA_500m.csv")
-
-
-### Start here
 
 
 # ### Descriptive statistics and data exploration
