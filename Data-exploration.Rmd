@@ -1,6 +1,8 @@
 ---
 title: "Data exploration"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
@@ -8,7 +10,7 @@ rm(list=ls()) # Clears workspace
 knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -28,16 +30,48 @@ Traditionally engineered structures, as well as natural and nature-based feature
 
 Visitation is proxied via geotagged social media data from Flickr and Twitter. These are measured as average annual user days, from 2005 - 2017 for Flickr and 2012 - 2017 for Twitter. Values are extracted for cells within a hexagonal tessalation that intersect with the NOAA Environmental Sensitivity Index polyline for the California coastline. The user day counts are treated as a proxy for relative visitation and are the dependent variable in the visitation model.  
 
+Given that we have count data, and lots of zeros, natural choices for regression are a poisson, negative binomial, zero-inflated negative binomial, or a hurdle model. How to choose between these?
 
+Zero-inflated doesn't refer to lots of zeros in the outcome variable, but an outcome variable that you would expect to have lots of zeros that are based on a different process than generates non-zero values. As such, even with lots of zeros, a zero inflated negative binomial model may not be appropriate versus a standard NB model if the zeros originate from the same date generating process as the non-zero values. Hurdle models are generally used for sequential decision making and may not be appropriate here, as the decision process to visit the shoreline is typically one step.
+
+Let's explore a standard poisson and negative binomial regression. First, some summary statistics. 
 
 ```{r data, include=FALSE}
 df<-read_csv("results.csv")
 ```
 
-## Including Plots
+<style>
+  td {
+    padding: 40px;
+  }
+</style>
 
-You can also embed plots, for example:
+```{r zeros, echo=FALSE, results='asis'}
+df$hres<-as.factor(df$hres)
+a1<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==250,],fmt="%.0f", title = 'Resolution 250m')
+a2<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==500,],fmt="%.0f", title = 'Resolution 500m')
+a3<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==1000,],fmt="%.0f", title = 'Resolution 1000m')
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+knitr::kables(list(a1,a2,a3)) %>%
+  kable_styling(position = "center", bootstrap_options = "none")
+
+rm(a1,a2,a3,summaryname)
+
 ```
+
+The data is characterized by a significant number of zeros, that increase as a percentage of the data at higher resolutions.
+
+```{r continuous, echo=FALSE}
+datasummary(rdist + YCdist + sumpop + wtlddist + meanprec + meanat + meanSST ~ Mean + SD + Histogram, data = df[df$hres==500,],fmt="%.1f", title = 'Continuous Predictors')
+```
+
+Summary statistics are shown for all potential continuous predictors. There is little variation across resolutions, so 500m is shown.
+
+```{r discrete, echo=FALSE}
+datasummary(rdist + YCdist + sumpop + wtlddist + meanprec + meanat + meanSST ~ Mean + SD + Histogram, data = df[df$hres==500,],fmt="%.1f", title = 'Continuous Predictors')
+```
+
+Rootograms are a useful way to compare model selection between these two, as they assess [overdispersion](https://www.theanalysisfactor.com/poisson-or-negative-binomial-using-count-model-diagnostics-to-select-a-model/), a key selection criteria between the models.
