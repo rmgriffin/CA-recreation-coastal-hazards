@@ -123,6 +123,8 @@ data.processing<-function(f,t){
   df<-merge(df,Pop.buff8m,"id")
   # Removing unneeded vars
   rm(Pop,Pop.buff8m)
+  # Rounding to whole individuals
+  df$sumpop<-round(df$sumpop)
   
   ## Road network distance
   # Road network line shapefile
