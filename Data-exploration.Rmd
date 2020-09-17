@@ -10,7 +10,7 @@ rm(list=ls()) # Clears workspace
 knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -19,7 +19,6 @@ for (p in PKG) {
 }
 rm(PKG,p)
 renv::snapshot()
-
 ```
 
 ## Analysis summary
@@ -38,6 +37,7 @@ Let's explore a standard poisson and negative binomial regression. First, some s
 
 ```{r data, include=FALSE}
 df<-read_csv("results.csv")
+df<-df[complete.cases(df),] # drops a few observations where the precipitation and air temp rasters returned NAs due to inadequate coverage
 ```
 
 <style>
@@ -48,30 +48,106 @@ df<-read_csv("results.csv")
 
 ```{r zeros, echo=FALSE, results='asis'}
 df$hres<-as.factor(df$hres)
-a1<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
-            data = df[df$hres==250,],fmt="%.0f", title = 'Resolution 250m')
-a2<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
-            data = df[df$hres==500,],fmt="%.0f", title = 'Resolution 500m')
-a3<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
-            data = df[df$hres==1000,],fmt="%.0f", title = 'Resolution 1000m')
+f1<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==250&df$source=="PUD",],fmt="%.0f", title = 'Flickr Resolution 250m')
+f2<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==500&df$source=="PUD",],fmt="%.0f", title = 'Flickr Resolution 500m')
+f3<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==1000&df$source=="PUD",],fmt="%.0f", title = 'Flickr Resolution 1000m')
 
-knitr::kables(list(a1,a2,a3)) %>%
+knitr::kables(list(f1,f2,f3)) %>%
   kable_styling(position = "center", bootstrap_options = "none")
 
-rm(a1,a2,a3,summaryname)
+t1<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==250&df$source=="TUD",],fmt="%.0f", title = 'Twitter Resolution 250m')
+t2<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==500&df$source=="TUD",],fmt="%.0f", title = 'Twitter Resolution 500m')
+t3<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==1000&df$source=="TUD",],fmt="%.0f", title = 'Twitter Resolution 1000m')
+
+knitr::kables(list(t1,t2,t3)) %>%
+  kable_styling(position = "center", bootstrap_options = "none")
+
+rm(f1,f2,f3,t1,t2,t3,summaryname)
 
 ```
 
-The data is characterized by a significant number of zeros, that increase as a percentage of the data at higher resolutions.
+The data is characterized by a significant number of zeros, that increase as a percentage of the data at higher resolutions. Twitter data seems to produce more zeros than flickr data at all resolutions. 
 
 ```{r continuous, echo=FALSE}
-datasummary(rdist + YCdist + sumpop + wtlddist + meanprec + meanat + meanSST ~ Mean + SD + Histogram, data = df[df$hres==500,],fmt="%.1f", title = 'Continuous Predictors')
+datasummary((`Distance to nearest road (m)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Distance to nearest wetland (m)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean air temp (C)`=meanat) + (`Mean sea surface temp (C)`=meanSST) ~ Mean + Median + SD + Histogram, data = df[df$hres==250,],fmt="%.1f", title = 'Continuous Predictors 250m')
+
+datasummary((`Distance to nearest road (m)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Distance to nearest wetland (m)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean air temp (C)`=meanat) + (`Mean sea surface temp (C)`=meanSST) ~ Mean + Median + SD + Histogram, data = df[df$hres==1000,],fmt="%.1f", title = 'Continuous Predictors 1000m')
 ```
 
-Summary statistics are shown for all potential continuous predictors. There is little variation across resolutions, so 500m is shown.
+Summary statistics are shown for all potential continuous predictors. There is little variation across resolutions, but note that the higher resolution observation picks up finer scale variation in the 'distance to X' variables.
 
 ```{r discrete, echo=FALSE}
-datasummary(rdist + YCdist + sumpop + wtlddist + meanprec + meanat + meanSST ~ Mean + SD + Histogram, data = df[df$hres==500,],fmt="%.1f", title = 'Continuous Predictors')
+# Filtering area of influence of amenities represented in Yourcoast database
+df<-mutate_at(df, vars(BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH), list(~ ifelse(YCdist>1000, 0, .)))
+
+d1<-datasummary((`Exposed rocky shore`=x1a ) + (`Exposed solid man-made structures`=x1b) + (`Exposed wave-cut platforms in bedrock`=x2a) + (`Fine-to-medium grain sand beaches`=x3a) + (`Scarps and steep slopes in sand`=x3b) + (`Coarse-grained sand beaches`=x4) + (`Mixed sand and gravel beaches`=x5) + (`Gravel beaches`=x6a) + (`Riprap`=x6b) + (`Exposed tidal flats`=x7) + (`Sheltered rocky shores`=x8a) + (`Sheltered man-made structures`=x8b) + (`Sheltered riprap`=x8c) + (`Sheltered tidal flat`=x9a) + (`Vegetated low riverine banks`=x9b) + (`Salt and brackish marshes`=x10a) + (`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'Binary Predictors 250m')
+d2<-datasummary((`Exposed rocky shore`=x1a ) + (`Exposed solid man-made structures`=x1b) + (`Exposed wave-cut platforms in bedrock`=x2a) + (`Fine-to-medium grain sand beaches`=x3a) + (`Scarps and steep slopes in sand`=x3b) + (`Coarse-grained sand beaches`=x4) + (`Mixed sand and gravel beaches`=x5) + (`Gravel beaches`=x6a) + (`Riprap`=x6b) + (`Exposed tidal flats`=x7) + (`Sheltered rocky shores`=x8a) + (`Sheltered man-made structures`=x8b) + (`Sheltered riprap`=x8c) + (`Sheltered tidal flat`=x9a) + (`Vegetated low riverine banks`=x9b) + (`Salt and brackish marshes`=x10a) + (`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'Binary Predictors 1000m')
+
+knitr::kables(list(d1,d2)) %>%
+  kable_styling(position = "center", bootstrap_options = "none")
+
+d1<-datasummary((`# of ESI types`=types) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'ESI Types 250m')
+d2<-datasummary((`# of ESI types`=types) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'ESI Types 1000m')
+
+knitr::kables(list(d1,d2)) %>%
+  kable_styling(position = "center", bootstrap_options = "none")
+
+```
+
+These values represent proportions of observations intersecting with ESI types, or within 1km of amenities in the [California Coastal Commission Yourcoast database](https://www.coastal.ca.gov/YourCoast/#/map). Amenities do not change markedly between resolutions as they are based on intersection with a buffer, but there are more ESI types per observation as the resolution gets coarser. 
+
+```{r correlationESI, echo=FALSE, fig.align="center"}
+cormat<-round(cor(df[,3:18]),2)
+rownames(cormat)<-c("Exposed rocky shore (1a)","Exposed solid man-made structures (1b)","Exposed wave-cut platforms in bedrock (2a)","Fine-to-medium grain sand beaches (3a)","Scarps and steep slopes in sand (3b)","Coarse-grained sand beaches (4)","Mixed sand and gravel beaches (5)","Gravel beaches (6a)","Riprap (6b)","Exposed tidal flats (7)","Sheltered rocky shores (8a)","Sheltered man-made structures (8b)","Sheltered riprap (8c)","Sheltered tidal flat (9a)","Vegetated low riverine banks (9b)","Salt and brackish marshes (10a)")
+colnames(cormat)<-c("1a","1b","2a","3a","3b","4","5","6a","6b","7","8a","8b","8c","9a","9b","10a")
+corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = "RdBu"),tl.col = "black")
+```
+
+Correlogram of ESI types. Not much correlation, though tidal flats and marshes are often observed together.
+
+```{r correlationYC, echo=FALSE, fig.align="center"}
+cormat<- df[df$hres==1000,] %>%
+  select(sumpop,rdist,BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH,WaterTrail,BayTrail,wtlddist,meanprec,meanat,meanSST)
+cormat<-round(cor(cormat),2)
+# rownames(cormat)<-c("Exposed rocky shore (1a)","Exposed solid man-made structures (1b)","Exposed wave-cut platforms in bedrock (2a)","Fine-to-medium grain sand beaches (3a)","Scarps and steep slopes in sand (3b)","Coarse-grained sand beaches (4)","Mixed sand and gravel beaches (5)","Gravel beaches (6a)","Riprap (6b)","Exposed tidal flats (7)","Sheltered rocky shores (8a)","Sheltered man-made structures (8b)","Sheltered riprap (8c)","Sheltered tidal flat (9a)","Vegetated low riverine banks (9b)","Salt and brackish marshes (10a)")
+# colnames(cormat)<-c("1a","1b","2a","3a","3b","4","5","6a","6b","7","8a","8b","8c","9a","9b","10a")
+par(xpd = TRUE) # https://stackoverflow.com/questions/46331172/corrplot-margin-in-plot-window
+corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = "RdBu"),tl.col = "black", tl.srt = 45, mar = c(2, 2, 2, 2))
+
+```
+
+Correlogram of other predictors. Relationships are stable across resolutions; the above plots correlations at 1000m resolution.
+
+```{r `ESI crosswalk`, echo=FALSE}
+
+df$RockyShore<-pmax(df$x1a,df$x2a,df$x6a,df$x8a)
+df$SandyBeach<-pmax(df$x3a,df$x3b,df$x4,df$x5)
+df$Marshes<-pmax(df$x9a,df$x9b,df$x10a)
+df$Armored<-pmax(df$x1b,df$x6b,df$x8b,df$x8c)
+
+d1<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'Binary Predictors 1000m')
+d2<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==500,],fmt="%.2f", title = 'Binary Predictors 500m')
+d3<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'Binary Predictors 250m')
+
+knitr::kables(list(d1,d2,d3)) %>%
+  kable_styling(position = "center", bootstrap_options = "none")
+```
+
+A proposed crosswalk of ESI types to fewer shoreline classes: Rocky shore {1A, 2A, 6A, 8A}, Sandy beach {3A, 3B, 4, 5}, Marshes {9A, 9B, 10A}, Armored shore {1B, 6B, 8B, 8C}. Again, there are more ESI types per observation as the resolution gets coarser. 
+
+
+```{r regressions, echo=FALSE}
+mod1<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = poisson)
+mod2<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==500,], family = poisson)
+mod3<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==1000,], family = poisson)
+mod<-list(mod1,mod2,mod3)
+msummary(mod)
 ```
 
 Rootograms are a useful way to compare model selection between these two, as they assess [overdispersion](https://www.theanalysisfactor.com/poisson-or-negative-binomial-using-count-model-diagnostics-to-select-a-model/), a key selection criteria between the models.
