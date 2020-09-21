@@ -8,9 +8,10 @@ output:
 ```{r setup, include=FALSE, echo=FALSE}
 rm(list=ls()) # Clears workspace
 knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
+knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -31,11 +32,11 @@ Traditionally engineered structures, as well as natural and nature-based feature
 
 Visitation is proxied via geotagged social media data from Flickr and Twitter. These are measured as average annual user days, from 2005 - 2017 for Flickr and 2012 - 2017 for Twitter. Values are extracted for cells within a hexagonal tessalation that intersect with the NOAA Environmental Sensitivity Index polyline for the California coastline. The user day counts are treated as a proxy for relative visitation and are the dependent variable in the visitation model.  
 
-Given that we have count data, and lots of zeros, natural choices for regression are a poisson, negative binomial, zero-inflated negative binomial, or a hurdle model. How to choose between these?
+*Given that we have count data, and lots of zeros, natural choices for regression are a poisson, negative binomial, zero-inflated negative binomial, or a hurdle model. How to choose between these?*
 
 Zero-inflated doesn't refer to lots of zeros in the outcome variable, but an outcome variable that you would expect to have lots of zeros that are based on a different process than generates non-zero values. As such, even with lots of zeros, a zero inflated negative binomial model may not be appropriate versus a standard NB model if the zeros originate from the same date generating process as the non-zero values. Hurdle models are generally used for sequential decision making and may not be appropriate here, as the decision process to visit the shoreline is typically one step.
 
-Let's explore a standard poisson and negative binomial regression. First, some summary statistics. 
+Let's first explore some summary statistics. 
 
 ```{r data, include=FALSE}
 df<-read_csv("results.csv")
@@ -106,7 +107,7 @@ knitr::kables(list(d1,d2)) %>%
 
 ```
 
-These values represent proportions of observations intersecting with ESI types, or within 1km of amenities in the [California Coastal Commission Yourcoast database](https://www.coastal.ca.gov/YourCoast/#/map). Amenities do not change markedly between resolutions as they are based on intersection with a buffer, but there are more ESI types per observation as the resolution gets coarser. 
+These values represent proportions of observations intersecting with ESI types, or within 1km of amenities in the [California Coastal Commission Yourcoast database](https://www.coastal.ca.gov/YourCoast/#/map). Amenities do not change markedly between resolutions as they are based on intersection with a buffer (within 1km of Yourcoast geotagged location), but there are more ESI types per observation as the resolution gets coarser. 
 
 ```{r correlationESI, echo=FALSE, fig.align="center"}
 cormat<-round(cor(df[,3:18]),2)
@@ -148,7 +149,7 @@ knitr::kables(list(d1,d2,d3)) %>%
 A proposed crosswalk of ESI types to fewer shoreline classes: Rocky shore {1A, 2A, 6A, 8A}, Sandy beach {3A, 3B, 4, 5}, Marshes {9A, 9B, 10A}, Armored shore {1B, 6B, 8B, 8C}. Again, there are more ESI types per observation as the resolution gets coarser. 
 
 
-```{r `regressions Poisson`, echo=FALSE, include=FALSE}
+```{r `regressions Poisson`, echo=FALSE}
 models<-list()
 models[['Flickr 250m']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = poisson)
 models[['Flickr 500m']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==500,], family = poisson)
@@ -163,19 +164,17 @@ msummary(models, stars = TRUE, title = "Poisson regressions, across resolutions 
 
 ```
 
-```{r `regressions quasiPoisson`, echo=FALSE, include=FALSE}
+```{r `regressions quasiPoisson`, echo=FALSE}
 models <- list()
 models[['Flickr 250m']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = quasipoisson)
 models[['Twitter 250m']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = quasipoisson)
 
-msummary(models, stars = TRUE, title = "Quasi-Poisson regression, across data source at 250m")
+msummary(models, stars = TRUE, title = "Quasi-Poisson regression, across data source at 250m", gof_omit = "AIC|BIC|Log.Lik")
 
 # coeftest(mod1, vcov = sandwich)
 ```
 
-Perhaps expand to all resolutions?
-
-```{r `regression NB`, echo=FALSE}
+```{r `regression NB`, echo=FALSE, results='hide',fig.keep='all'}
 models <- list()
 models[['Flickr 250m']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = nbinom2)
 models[['Flickr 500m']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==500,], family = nbinom2)
@@ -187,12 +186,17 @@ models[['Twitter 1000m']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armo
 
 # cm<-c('(Intercept)'='Constant', 'Armored'='Armored','BIKE_PATH'='Bike path','Boating'='BOATING','Boating facilities'='BT_FACIL_T','Campground'='CAMPGROUND','Disabled Access'='DSABLDACSS','Fee'='FEE','Fishing'='FISHING','Parking available'='PARKING','Path to beach'='PTH_BEACH','Restrooms'='RESTROOMS','Stairs to beach'='STRS_BEACH','SF Bay Water Trail'='WaterTrail','SF Bay Trail'='BayTrail')
 
-msummary(models, stars = TRUE, title = "Negative binomial regression across data source and resolution")
+gm<-modelsummary::gof_map
+gm$omit<-FALSE
+rows<-data.frame("term"="Num.Obs","Flickr 250m"="27315","Flickr 500m"="12221","Flickr 1000m"="5449","Twitter 250m"="27315","Twitter 500m"="12221","Twitter 1000m"="5449")
+attr(rows,"position")<-49
+
+msummary(models, stars = TRUE, title = "Negative binomial regression across data source and resolution", add_rows = rows)
 
 ```
 
 ```{r `regression comparison flickr`, echo=FALSE}
-glmmTMBControl(optCtrl=list(iter.max=1e4,eval.max=1e3))
+invisible(glmmTMBControl(optCtrl=list(iter.max=1e4,eval.max=1e3))) 
 models <- list()
 models[['Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = poisson)
 models[['Quasi-Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==500,], family = nbinom1)
@@ -202,7 +206,12 @@ models[['Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + 
 # models[['Hurdle']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = "truncated_nbinom2", zi=~.)
 # models[['Zero-inflated Negative Binomial']]<-zeroinfl(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], dist = "negbin")
 
-msummary(models, stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution")
+gm<-modelsummary::gof_map
+gm$omit<-ifelse(gm$raw == "nobs"|gm$raw == "df.residual",TRUE,FALSE)
+rows<-data.frame("term"="Num.Obs","Poisson"="27315","Quasi-Poisson"="27315","Negative Binomial"="27315")
+attr(rows,"position")<-49
+
+msummary(models, stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution", gof_map = gm, add_rows = rows)
 ```
 
 Models that treat this as a two-stage process (ZINB and hurdle) do not converge when using all predictors for both processes. However, from a theoretical perspective shoreline visitation choice is not typically treated as a two-stage process in random utility models of visitation. Furthermore, the choice to visit the beach, versus do other activities, likely does not rely on the predictors we have here.
@@ -213,10 +222,25 @@ models[['Poisson']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sump
 models[['Quasi-Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==500,], family = nbinom1)
 models[['Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==1000,], family = nbinom2)
 # Separating the model into two processes for the zeros and the non-zeros does converge, unlike for the Flickr data
-models[['Hurdle']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = "truncated_nbinom2", zi=~.)
-models[['Zero-inflated Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], zi = ~., family = nbinom2)
+# models[['Hurdle']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = "truncated_nbinom2", zi=~.)
+# models[['Zero-inflated Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], zi = ~., family = nbinom2)
 
-msummary(models, stars = TRUE, title = "Different regression approaches, Twitter User Days 250m resolution")
+
+gm<-modelsummary::gof_map
+gm$omit<-ifelse(gm$raw == "nobs"|gm$raw == "df.residual"|gm$raw == "deviance"|gm$raw == "df.null"|gm$raw == "sigma"|gm$raw == "null.deviance",TRUE,FALSE)
+rows<-data.frame("term"="Num.Obs","Poisson"="27315","Quasi-Poisson"="27315","Negative Binomial"="27315")
+attr(rows,"position")<-49
+
+msummary(models, stars = TRUE, title = "Different regression approaches, Twitter User Days 250m resolution", gof_map = gm, add_rows = rows)
 ```
+```{r}
+vcd::rootogram(df[df$source=="TUD"&df$hres==250,"ud"], predict(models[['Poisson']]), scale = "raw")
+vcd::rootogram(df[df$source=="TUD"&df$hres==250,"ud"], predict(models[['Quasi-Poisson']]), scale = "raw")
+vcd::rootogram(df[df$source=="TUD"&df$hres==250,"ud"], predict(models[['Negative Binomial']]), scale = "raw")
+
+
+```
+
+
 
 Rootograms are a useful way to compare model selection between these two, as they assess [overdispersion](https://www.theanalysisfactor.com/poisson-or-negative-binomial-using-count-model-diagnostics-to-select-a-model/), a key selection criteria between the models.
