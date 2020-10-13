@@ -39,7 +39,7 @@ Zero-inflated doesn't refer to lots of zeros in the outcome variable, but an out
 Let's first explore some summary statistics. 
 
 ```{r data, include=FALSE}
-df<-read_csv("results.csv")
+df<-read_csv("results.csv") # Results of "CA-recreation-coastal-hazards.R"
 df<-df[complete.cases(df),] # drops a few observations where the precipitation and air temp rasters returned NAs due to inadequate coverage
 # rescaling population to thousands and distances to km, to deal with model convergence issues
 df$sumpop<-df$sumpop/1000
@@ -394,17 +394,23 @@ write.csv(df,"results2.csv", row.names = FALSE)
 # import delimited C:\Users\XPSXIII\Downloads\results2.csv
 # zinb ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="PUD"&hres==250, inflate(rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst) robust
 
+models[['PUD ZINB']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], zi = ~., family = nbinom2)
+
 models[['TUD Hurdle']]<-pscl::hurdle(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], dist = "negbin")
 
 summary(models[['TUD Hurdle']])
+```
+Hurdle model for TUD 
 
+```{r `BPtestTUD`, echo=FALSE}
 # Breusch-Pagan test for heteroskedasticity
 bptest(models[['PUD ZINB']]) # p-value <2.2e-16
 bptest(models[['TUD Hurdle']])
+```
+TUD model appears to be heteroskedastic according to a Breusch-Pagan test.
 
+```{r `standard errors`, echo=FALSE}
 # Heteroskedasticity consistent stanard errors
 coeftest(models[['TUD Hurdle']], vcov = sandwich)
-
 ```
-
-Both models appear to be heteroskedastic according to a Breusch-Pagan test.
+No approach for robust standard erros in R for ZINB estimated by glmmTMB, so that was exported to Stata to run with robust standard errors
