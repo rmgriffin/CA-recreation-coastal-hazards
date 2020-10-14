@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -407,10 +407,76 @@ Hurdle model for TUD
 bptest(models[['PUD ZINB']]) # p-value <2.2e-16
 bptest(models[['TUD Hurdle']])
 ```
-TUD model appears to be heteroskedastic according to a Breusch-Pagan test.
+Both models appear to be heteroskedastic according to a Breusch-Pagan test.
 
 ```{r `standard errors`, echo=FALSE}
 # Heteroskedasticity consistent stanard errors
 coeftest(models[['TUD Hurdle']], vcov = sandwich)
 ```
 No approach for robust standard erros in R for ZINB estimated by glmmTMB, so that was exported to Stata to run with robust standard errors
+
+##Draft figures for paper
+
+```{r `map`, echo=FALSE}
+# Guidance for tmaps package https://geocompr.robinlovelace.net/adv-map.html
+Rds<-st_read("./Data/Roads_2015.gpkg")
+ESI<-st_read("./Data/ESIL_CA.gpkg")
+bbox<-filter(Rds, FULLNAME %in% c("Pilarcitos Ave"))
+bbox<-st_transform(bbox, st_crs(ESI))
+
+
+# Modifying the bounding box https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
+bbox_new<-st_bbox(bbox)
+xrange <- bbox_new$xmax - bbox_new$xmin
+yrange <- bbox_new$ymax - bbox_new$ymin
+  bbox_new[1] <- bbox_new[1] - (6 * xrange) # xmin - left
+  bbox_new[3] <- bbox_new[3] + (6 * xrange) # xmax - right
+  bbox_new[2] <- bbox_new[2] - (6 * yrange) # ymin - bottom
+  bbox_new[4] <- bbox_new[4] + (6 * yrange) # ymax - top
+bbox_new <- bbox_new %>%  # take the bounding box ...
+  st_as_sfc() # ... and make it a sf polygon
+
+PUD1k<-st_read("./Data/PUD_2005-2017_1000m.gpkg")
+ESI<-st_transform(ESI, st_crs(PUD1k))
+PUD1k<-st_join(PUD1k,ESI, left = FALSE)
+
+TUD1k<-st_read("./Data/TUD_2012-2017_1000m.gpkg")
+TUD1k<-st_join(TUD1k,ESI, left = FALSE)
+
+breaks = c(0, 25, 50, 75, 100)
+PUD1k.p<-tm_shape(PUD1k,bbox = bbox_new) + 
+  tm_polygons(col = "PUD_YR_AVG", breaks = breaks) +
+  tm_shape(ESI) +
+  tm_lines() 
+
+breaks = c(0, 50, 100, 150, 200)
+TUD1k.p<-tm_shape(TUD1k,bbox = bbox_new) + 
+  tm_polygons(col = "PUD_YR_AVG", breaks = breaks) +
+  tm_shape(ESI) +
+  tm_lines() 
+
+plots1k<-tmap_arrange(PUD1k.p,TUD1k.p,ncol = 2)
+
+PUD250m<-st_read("./Data/PUD_2005-2017_250m.gpkg")
+PUD250m<-st_join(PUD250m,ESI, left = FALSE)
+PUD250m$PUD_YR_AVG<-PUD250m$PUD_YR_AVG*13
+
+TUD250m<-st_read("./Data/TUD_2012-2017_250m.gpkg")
+TUD250m<-st_join(TUD250m,ESI, left = FALSE)
+
+breaks = c(0, 25, 50, 75, 100)
+PUD250m.p<-tm_shape(PUD250m,bbox = bbox_new) + 
+  tm_polygons(col = "PUD_YR_AVG", breaks = breaks) +
+  tm_shape(ESI) +
+  tm_lines() 
+
+breaks = c(0, 50, 100, 150, 200)
+TUD250m.p<-tm_shape(TUD250m,bbox = bbox_new) + 
+  tm_polygons(col = "PUD_YR_AVG", breaks = breaks) +
+  tm_shape(ESI) +
+  tm_lines() 
+
+plots250m<-tmap_arrange(PUD250m.p,TUD250m.p,ncol = 2)
+
+
+```
