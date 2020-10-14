@@ -20,23 +20,6 @@ rm(p,PKG)
 ## Snapshot of libraries used
 renv::snapshot()
 
-# # Library for negative binomial regression
-# library(MASS)
-# # Library for rootogram for negative binomial regression
-# library(countreg)
-# # Library for visualizing regression results (also need broom/ggstance/ package for plots) https://cran.r-project.org/web/packages/jtools/vignettes/summ.html
-# library(jtools)
-# library(broom)
-# library(ggstance)
-# #Plots
-# library(ggplot2)
-# # Library to easily delimit columns
-# library(tidyr)
-# # Library for hurdle models
-# library(pscl)
-# # Library for correlograms
-# library(corrplot)
-
 ### Downloading data
 dir.create(file.path('Data'), recursive = TRUE)
 folder_url<-"https://drive.google.com/open?id=1mBXEDzc2hBnOa2bxKmg6P9Oz8taR9rTt"
