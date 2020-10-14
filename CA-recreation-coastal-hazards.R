@@ -40,12 +40,11 @@ data.processing<-function(f,t){
 
   ### Dependent variables
   Flickr<-st_read(f)
-  # Convert PUD_YR_INT to PUD by multiplying by # (covering the time horizon 2005 - 2017). SWITCH to relevant input (twitter, flickr, etc.)
-  Flickr$PUD<-Flickr$PUD_YR_AVG*13
+  Flickr$PUD<-Flickr$PUD_YR_AVG*13 # Convert PUD_YR_AVG to PUD
   # Add id
   Flickr$id<-seq.int(nrow(Flickr))
   Twitter<-st_read(t)
-  Flickr$TUD<-Twitter$PUD_YR_AVG*6
+  Flickr$TUD<-Twitter$PUD_YR_AVG*6 # Convert TUD_YR_AVG to TUD
   Depvar<-Flickr[,c("PUD","TUD","id")]
   
   ### Independent variables
