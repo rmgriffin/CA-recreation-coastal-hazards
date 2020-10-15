@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -417,66 +417,83 @@ No approach for robust standard erros in R for ZINB estimated by glmmTMB, so tha
 
 ##Draft figures for paper
 
-```{r `map`, echo=FALSE}
+```{r `map inputs`, echo=FALSE, include=FALSE}
 # Guidance for tmaps package https://geocompr.robinlovelace.net/adv-map.html
-Rds<-st_read("./Data/Roads_2015.gpkg")
-ESI<-st_read("./Data/ESIL_CA.gpkg")
-bbox<-filter(Rds, FULLNAME %in% c("Pilarcitos Ave"))
-bbox<-st_transform(bbox, st_crs(ESI))
 
+Rds<-st_read("./Data/Roads_2015.gpkg") # Roads
+ESI<-st_read("./Data/ESIL_CA.gpkg") # ESI
+bbox<-filter(Rds, FULLNAME %in% c("Pilarcitos Ave")) # Bounding box
+
+
+PUD500m<-st_read("./Data/PUD_2005-2017_500m.gpkg")
+ESI<-st_transform(ESI, st_crs(PUD500m))
+bbox<-st_transform(bbox, st_crs(ESI))
+PUD500m<-st_join(PUD500m,ESI, left = FALSE)
+PUD500m$PUD_YR_AVG<-PUD500m$PUD_YR_AVG*13
+
+TUD500m<-st_read("./Data/TUD_2012-2017_500m.gpkg")
+TUD500m<-st_join(TUD500m,ESI, left = FALSE)
+TUD500m$PUD_YR_AVG<-TUD500m$PUD_YR_AVG*6
+
+# PUD250m<-st_read("./Data/PUD_2005-2017_250m.gpkg")
+# PUD250m<-st_join(PUD250m,ESI, left = FALSE)
+# PUD250m$PUD_YR_AVG<-PUD250m$PUD_YR_AVG*13 # Total PUD vs annual average
+# 
+# TUD250m<-st_read("./Data/TUD_2012-2017_250m.gpkg")
+# TUD250m<-st_join(TUD250m,ESI, left = FALSE)
+# TUD250m$PUD_YR_AVG<-TUD250m$PUD_YR_AVG*6 # Total TUD vs annual average
+# 
+# PUD1k<-st_read("./Data/PUD_2005-2017_1000m.gpkg")
+# PUD1k<-st_join(PUD1k,ESI, left = FALSE)
+# PUD1k$PUD_YR_AVG<-PUD1k$PUD_YR_AVG*13
+# 
+# TUD1k<-st_read("./Data/TUD_2012-2017_1000m.gpkg")
+# TUD1k<-st_join(TUD1k,ESI, left = FALSE)
+# TUD1k$PUD_YR_AVG<-TUD1k$PUD_YR_AVG*6
 
 # Modifying the bounding box https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
 bbox_new<-st_bbox(bbox)
 xrange <- bbox_new$xmax - bbox_new$xmin
 yrange <- bbox_new$ymax - bbox_new$ymin
-  bbox_new[1] <- bbox_new[1] - (6 * xrange) # xmin - left
-  bbox_new[3] <- bbox_new[3] + (6 * xrange) # xmax - right
+  bbox_new[1] <- bbox_new[1] - (8 * xrange) # xmin - left
+  bbox_new[3] <- bbox_new[3] + (4 * xrange) # xmax - right
   bbox_new[2] <- bbox_new[2] - (6 * yrange) # ymin - bottom
   bbox_new[4] <- bbox_new[4] + (6 * yrange) # ymax - top
 bbox_new <- bbox_new %>%  # take the bounding box ...
   st_as_sfc() # ... and make it a sf polygon
 
-PUD1k<-st_read("./Data/PUD_2005-2017_1000m.gpkg")
-ESI<-st_transform(ESI, st_crs(PUD1k))
-PUD1k<-st_join(PUD1k,ESI, left = FALSE)
+```
 
-TUD1k<-st_read("./Data/TUD_2012-2017_1000m.gpkg")
-TUD1k<-st_join(TUD1k,ESI, left = FALSE)
+```{r `maps`, echo=FALSE}
+cdp<-places("CA", cb = TRUE) # Place names from US Census (tigris package)
+cdp<-st_transform(cdp, st_crs(ESI))
+rd.sc<-roads("CA","San Mateo") # Roads from US Census in San Mateo County, CA
+rd.sc<-st_transform(rd.sc, st_crs(ESI))
 
-breaks = c(0, 25, 50, 75, 100)
-PUD1k.p<-tm_shape(PUD1k,bbox = bbox_new) + 
-  tm_polygons(col = "PUD_YR_AVG", breaks = breaks) +
+breaks = c(0, 100, 200, 300, 400)
+PUD500m.p<-tm_shape(rd.sc,bbox = bbox_new) +
+  tm_lines(col="grey") +
+  tm_shape(PUD500m) +
+  tm_polygons(col = "PUD_YR_AVG", breaks = breaks, title = "Flickr User Days") + 
   tm_shape(ESI) +
-  tm_lines() 
+  tm_lines(col="black") +
+  tm_shape(cdp) +
+  tm_text("NAME",size=0.75) +
+  tm_add_legend("line", col = "black", labels = "ESI Line")
 
-breaks = c(0, 50, 100, 150, 200)
-TUD1k.p<-tm_shape(TUD1k,bbox = bbox_new) + 
-  tm_polygons(col = "PUD_YR_AVG", breaks = breaks) +
+breaks = c(0, 200, 400, 600, 800)
+TUD500m.p<-tm_shape(rd.sc,bbox = bbox_new) +
+  tm_lines(col="grey") +
+  tm_shape(TUD500m) +
+  tm_polygons(col = "PUD_YR_AVG", breaks = breaks, title = "Twitter User Days") + 
   tm_shape(ESI) +
-  tm_lines() 
+  tm_lines(col="black") +
+  tm_shape(cdp) +
+  tm_text("NAME",size=0.75) +
+  tm_add_legend("line", col = "black", labels = "ESI Line")
 
-plots1k<-tmap_arrange(PUD1k.p,TUD1k.p,ncol = 2)
+plots500m<-tmap_arrange(PUD500m.p,TUD500m.p,ncol = 2)
 
-PUD250m<-st_read("./Data/PUD_2005-2017_250m.gpkg")
-PUD250m<-st_join(PUD250m,ESI, left = FALSE)
-PUD250m$PUD_YR_AVG<-PUD250m$PUD_YR_AVG*13
-
-TUD250m<-st_read("./Data/TUD_2012-2017_250m.gpkg")
-TUD250m<-st_join(TUD250m,ESI, left = FALSE)
-
-breaks = c(0, 25, 50, 75, 100)
-PUD250m.p<-tm_shape(PUD250m,bbox = bbox_new) + 
-  tm_polygons(col = "PUD_YR_AVG", breaks = breaks) +
-  tm_shape(ESI) +
-  tm_lines() 
-
-breaks = c(0, 50, 100, 150, 200)
-TUD250m.p<-tm_shape(TUD250m,bbox = bbox_new) + 
-  tm_polygons(col = "PUD_YR_AVG", breaks = breaks) +
-  tm_shape(ESI) +
-  tm_lines() 
-
-plots250m<-tmap_arrange(PUD250m.p,TUD250m.p,ncol = 2)
-
+plots500m
 
 ```
