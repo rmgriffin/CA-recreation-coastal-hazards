@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -424,7 +424,6 @@ Rds<-st_read("./Data/Roads_2015.gpkg") # Roads
 ESI<-st_read("./Data/ESIL_CA.gpkg") # ESI
 bbox<-filter(Rds, FULLNAME %in% c("Pilarcitos Ave")) # Bounding box
 
-
 PUD500m<-st_read("./Data/PUD_2005-2017_500m.gpkg")
 ESI<-st_transform(ESI, st_crs(PUD500m))
 bbox<-st_transform(bbox, st_crs(ESI))
@@ -451,6 +450,9 @@ TUD500m$PUD_YR_AVG<-TUD500m$PUD_YR_AVG*6
 # TUD1k<-st_join(TUD1k,ESI, left = FALSE)
 # TUD1k$PUD_YR_AVG<-TUD1k$PUD_YR_AVG*6
 
+```
+
+```{r `maps tmap`, echo=FALSE}
 # Modifying the bounding box https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
 bbox_new<-st_bbox(bbox)
 xrange <- bbox_new$xmax - bbox_new$xmin
@@ -462,9 +464,6 @@ yrange <- bbox_new$ymax - bbox_new$ymin
 bbox_new <- bbox_new %>%  # take the bounding box ...
   st_as_sfc() # ... and make it a sf polygon
 
-```
-
-```{r `maps`, echo=FALSE}
 cdp<-places("CA", cb = TRUE) # Place names from US Census (tigris package)
 cdp<-st_transform(cdp, st_crs(ESI))
 rd.sc<-roads("CA","San Mateo") # Roads from US Census in San Mateo County, CA
@@ -495,5 +494,89 @@ TUD500m.p<-tm_shape(rd.sc,bbox = bbox_new) +
 plots500m<-tmap_arrange(PUD500m.p,TUD500m.p,ncol = 2)
 
 plots500m
+
+# Modifying the bounding box https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
+bbox_new<-st_bbox(bbox)
+xrange <- bbox_new$xmax - bbox_new$xmin
+yrange <- bbox_new$ymax - bbox_new$ymin
+  bbox_new[1] <- bbox_new[1] - (6 * xrange) # xmin - left
+  bbox_new[3] <- bbox_new[3] + (1 * xrange) # xmax - right
+  bbox_new[2] <- bbox_new[2] + (2 * yrange) # ymin - bottom
+  bbox_new[4] <- bbox_new[4] + (2.75 * yrange) # ymax - top
+bbox_new <- bbox_new %>%  # take the bounding box ...
+  st_as_sfc() # ... and make it a sf polygon
+
+ESI_bbox<-st_crop(ESI,bbox_new)
+ESI_bbox<-separate(ESI_bbox,ESI,c("I1","I2","I3"),"/",convert = TRUE)
+
+coler1<-brewer.pal(8,"Paired")
+coler2<-coler1[2:4]
+
+a<-tm_shape(rd.sc,bbox = bbox_new) +
+  tm_lines(col="grey") +
+  tm_shape(ESI_bbox) +
+  tm_lines(col="I1", legend.col.show = TRUE, lwd = 4, palette = coler1) +
+  tm_shape(cdp) +
+  tm_text("NAME",size=0.75)
+
+b<-tm_shape(rd.sc,bbox = bbox_new) +
+  tm_lines(col="grey") +
+  tm_shape(TUD500m) +
+  tm_borders(col = "black") +
+  tm_shape(ESI_bbox) +
+  tm_lines(col="I1", legend.col.show = TRUE, title.col = "ESI Classes", lwd = 6, palette = coler1, labels = c("Exposed solid man-made structures", "Exposed wave-cut platforms in bedrock", "Fine-to-medium grain sand beaches", "Coarse-grained sand beaches", "Mixed sand and gravel beaches", "Riprap", "Sheltered man-made structures", "Sheltered riprap")) +
+  tm_shape(ESI_bbox) +
+  tm_lines(col="I2", legend.col.show = FALSE, lwd = 3, colorNA = NULL, palette = coler2) +
+  tm_shape(cdp) +
+  tm_text("NAME",size=0.75) 
+  
+
+c<-tmap_arrange(a,b,ncol = 1)
+c
+
+d<-tmap_arrange(PUD500m.p,TUD500m.p, b, ncol = 2)
+d
+
+```
+
+```{r `maps ggplot`, echo=FALSE}
+# Tmap_arrange multi map layout appears inadequate for a three pane figure
+# Repeat of above code using ggplot2 and patchwork
+
+bbox<-filter(Rds, FULLNAME %in% c("Pilarcitos Ave")) # Bounding box
+bbox_new<-st_bbox(bbox)
+xrange <- bbox_new$xmax - bbox_new$xmin
+yrange <- bbox_new$ymax - bbox_new$ymin
+  bbox_new[1] <- bbox_new[1] - (8 * xrange) # xmin - left
+  bbox_new[3] <- bbox_new[3] + (4 * xrange) # xmax - right
+  bbox_new[2] <- bbox_new[2] - (6 * yrange) # ymin - bottom
+  bbox_new[4] <- bbox_new[4] + (6 * yrange) # ymax - top
+bbox_new <- bbox_new %>%  # take the bounding box ...
+  st_as_sfc() # ... and make it a sf polygon
+
+cdp<-places("CA", cb = TRUE) # Place names from US Census (tigris package)
+cdp<-st_transform(cdp, st_crs(Rds))
+rd.sc<-roads("CA","San Mateo") # Roads from US Census in San Mateo County, CA
+rd.sc<-st_transform(rd.sc, st_crs(Rds))
+ESI<-st_transform(ESI, st_crs(Rds))
+sm<-nation(resolution = "5m")
+sm<-st_transform(sm, st_crs(Rds))
+
+PUD500m$PUD_b<-cut(PUD500m$PUD_YR_AVG,
+                      breaks = c(0, 100, 200, 300, 400, 500, 600), labels = c("0-100","100-200","200-300","300-400","400-500","500-600"))
+
+ggplot() +
+  geom_sf(data=sm, color = "tan") +
+  geom_sf(data=rd.sc, color = "grey") +
+  theme_minimal() +
+  geom_sf(data = PUD500m, aes(fill=PUD_b)) +
+  scale_fill_brewer(palette = "Oranges", na.translate = FALSE, guide = guide_legend(override.aes = list(linetype = "blank"), title = "Flickr User Days")) + # https://github.com/tidyverse/ggplot2/issues/2763
+  geom_sf(data=ESI, aes(color="ESI Line"), show.legend = TRUE) +
+  scale_color_manual(values = c("ESI Line" = "black"), name = "") +
+  geom_sf_label(data = cdp, aes(label=NAME), size=2.5) +
+  coord_sf(xlim=c(-122.5402,-122.3882),ylim=c(37.38338,37.5586), datum = NA) +
+  theme(legend.position = c(0.25, 0.2), legend.margin = margin(-0.85,0,0,0, unit="cm"), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank())
+
+
 
 ```
