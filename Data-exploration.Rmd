@@ -493,7 +493,7 @@ TUD500m.p<-tm_shape(rd.sc,bbox = bbox_new) +
 
 plots500m<-tmap_arrange(PUD500m.p,TUD500m.p,ncol = 2)
 
-plots500m
+#plots500m
 
 # Modifying the bounding box https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
 bbox_new<-st_bbox(bbox)
@@ -532,9 +532,9 @@ b<-tm_shape(rd.sc,bbox = bbox_new) +
   
 
 c<-tmap_arrange(a,b,ncol = 1)
-c
 
-d<-tmap_arrange(PUD500m.p,TUD500m.p, b, ncol = 2)
+
+d<-tmap_arrange(PUD500m.p,TUD500m.p,b, nrow = 2, heights = c(1,1,1), widths = c(1,1,2))
 d
 
 ```
@@ -568,14 +568,14 @@ PUD500m$PUD_b<-cut(PUD500m$PUD_YR_AVG,
 a<-ggplot() +
   geom_sf(data=sm, color = "tan") +
   geom_sf(data=rd.sc, color = "grey") +
-  theme_minimal() +
   geom_sf(data = PUD500m, aes(fill=PUD_b)) +
   scale_fill_brewer(palette = "Oranges", na.translate = FALSE, guide = guide_legend(override.aes = list(linetype = "blank"), title = "Flickr User Days")) + # https://github.com/tidyverse/ggplot2/issues/2763
   geom_sf(data=ESI, aes(color="ESI Line"), show.legend = TRUE) +
   scale_color_manual(values = c("ESI Line" = "black"), name = "") +
   geom_sf_label(data = cdp, aes(label=NAME), size=2.5) +
   coord_sf(xlim=c(-122.5402,-122.3882),ylim=c(37.38338,37.5586), datum = NA) +
-  theme(legend.position = c(0.25, 0.3), legend.margin = margin(-0.25,0,0,0, unit="cm"), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm"))
+  theme_void() +
+  theme(legend.position = c(0.25, 0.32), legend.margin = margin(-0.25,0,0,0, unit="cm"), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm"))
 
 ## Twitter map
 TUD500m$PUD_b<-cut(TUD500m$PUD_YR_AVG,
@@ -584,13 +584,13 @@ TUD500m$PUD_b<-cut(TUD500m$PUD_YR_AVG,
 b<-ggplot() +
   geom_sf(data=sm, color = "tan") +
   geom_sf(data=rd.sc, color = "grey") +
-  theme_minimal() +
   geom_sf(data = TUD500m, aes(fill=PUD_b)) +
   scale_fill_brewer(palette = "Oranges", na.translate = FALSE, guide = guide_legend(override.aes = list(linetype = "blank"), title = "Twitter User Days")) + # https://github.com/tidyverse/ggplot2/issues/2763
   geom_sf(data=ESI, color = "black") +
   geom_sf_label(data = cdp, aes(label=NAME), size=2.5) +
   coord_sf(xlim=c(-122.5402,-122.3882),ylim=c(37.38338,37.5586), datum = NA) +
-  theme(legend.position = c(0.25, 0.24), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm"))
+  theme_void() +
+  theme(legend.position = c(0.25, 0.27), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm"))
 
 # Modifying the bounding box https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
 bbox_new<-st_bbox(bbox)
@@ -603,29 +603,33 @@ yrange <- bbox_new$ymax - bbox_new$ymin
 bbox_new <- bbox_new %>%  # take the bounding box ...
   st_as_sfc() # ... and make it a sf polygon
 
-ESI_bbox<-st_crop(ESI,bbox_new)
-ESI_bbox<-separate(ESI_bbox,ESI,c("I1","I2","I3"),"/",convert = TRUE)
+ESI_bbox<-separate(ESI,ESI,c("I1","I2","I3"),"/",convert = TRUE)
 ESI_bbox$I1<-as.factor(ESI_bbox$I1)
 ESI_bbox$I2<-as.factor(ESI_bbox$I2)
 levels(ESI_bbox$I1)
-ESI_bbox$I1<-fct_recode(ESI_bbox$I1,"Rocky shore"="1A","Solid man-made structures"="1B","Wave-cut platforms in bedrock"="2A","Scarps and steep slopes"="2B", "Fine-to-medium grain sand beaches"="3A", "Scarps and steep slopes"="3B","Coarse-grained sand beaches"="4","Mixed sand and gravel beaches"="5","Gravel Beaches"="6A","Riprap"="6B","Boulder Rubble"="6D","Tidal flats"="7","Rocky shores"="8A","Solid man-made structures"="8B","Riprap"="8C","Tidal flat"="9A","Vegetated low riverine banks"="9B","Salt and brackish marshes"="10A")
-ESI_bbox$I2<-fct_recode(ESI_bbox$I2,"Rocky shore"="1A","Solid man-made structures"="1B","Wave-cut platforms in bedrock"="2A","Scarps and steep slopes"="2B", "Fine-to-medium grain sand beaches"="3A", "Scarps and steep slopes"="3B","Coarse-grained sand beaches"="4","Mixed sand and gravel beaches"="5","Gravel Beaches"="6A","Riprap"="6B","Boulder Rubble"="6D","Tidal flats"="7","Rocky shores"="8A","Solid man-made structures"="8B","Riprap"="8C","Tidal flat"="9A","Vegetated low riverine banks"="9B","Salt and brackish marshes"="10A")
-coler1<-brewer.pal(11,"Paired")
-#coler2<-coler1[2:4]
+ESI_bbox$I1<-fct_recode(ESI_bbox$I1,"Rocky shore"="1A","Solid man-made structures"="1B","Wave-cut platforms in bedrock"="2A","Scarps and steep slopes"="2B", "Fine-to-medium grain sand beaches"="3A", "Scarps and steep slopes"="3B","Coarse-grained sand beaches"="4","Mixed sand and gravel beaches"="5","Gravel beaches"="6A","Riprap"="6B","Boulder rubble"="6D","Tidal flats"="7","Rocky shore"="8A","Solid man-made structures"="8B","Riprap"="8C","Tidal flats"="9A","Vegetated low riverine banks"="9B","Tidal flats" = "9C","Salt and brackish marshes"="10A","Freshwater marshes"="10B","Swamps" = "10C","Scrub and shrub wetlands"="10D")
+ESI_bbox$I2<-fct_recode(ESI_bbox$I2,"Rocky shore"="1A","Solid man-made structures"="1B","Wave-cut platforms in bedrock"="2A","Scarps and steep slopes"="2B", "Fine-to-medium grain sand beaches"="3A", "Scarps and steep slopes"="3B","Coarse-grained sand beaches"="4","Mixed sand and gravel beaches"="5","Gravel beaches"="6A","Riprap"="6B","Boulder rubble"="6D","Tidal flats"="7","Rocky shore"="8A","Solid man-made structures"="8B","Riprap"="8C","Tidal flats"="9A","Vegetated low riverine banks"="9B","Tidal flats" = "9C","Salt and brackish marshes"="10A","Freshwater marshes"="10B","Swamps" = "10C","Scrub and shrub wetlands"="10D")
+coler1<-brewer.pal(12,"Paired")
+coler2<-brewer.pal(12,"Set2")
+coler1<-c(coler1,coler2)
+
+ESI_bbox<-st_crop(ESI_bbox, xmin = -122.51, xmax = -122.39,
+                                    ymin = 37.46121, ymax = 37.52164)
 
 c<-ggplot() +
   geom_sf(data=sm, color = "tan") +
   geom_sf(data=rd.sc, color = "grey") +
-  theme_minimal() +
   geom_sf(data=TUD500m, color = "black") +
   geom_sf(data=ESI_bbox, aes(color=I1), lwd = 2.5, show.legend = FALSE) +
   scale_color_manual(values = coler1) +
   geom_sf(data=ESI_bbox, aes(color=I2), lwd = .75, show.legend = "line") +
-  scale_color_manual(values = coler1, name = "ESI Classes", guide = guide_legend(override.aes = list(shape = NA))) +
-  coord_sf(xlim=c(-122.5,-122.4),ylim=c(37.47121,37.51164), datum = NA) + #bbox_new
-  theme(panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), legend.position = c(0.75, 0.55), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm"))
+  scale_color_manual(values = coler1, name = "ESI Classes", guide = guide_legend(override.aes = list(shape = NA, lwd = 2))) +
+  coord_sf(xlim=c(-122.5,-122.39),ylim=c(37.47121,37.51164), datum = NA) + #bbox_new
+  theme_minimal() +
+  theme(panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), legend.position = c(0.76, 0.56), plot.margin=margin(0, 0, 0, 0, "cm"), legend.background = element_rect(fill="white", size=0.5, linetype="solid"))
 
 p<-(a + b) / c
-#ggsave("p.eps",p)
-p
+p<-c/(a+b)
+ggsave("p.eps",p)
+#p
 ```
