@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "svglite") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -19,6 +19,9 @@ for (p in PKG) {
     require(p,character.only = TRUE)}
 }
 rm(PKG,p)
+# svglite may need these commands run in terminal first (this package is to save ggplots in *.svg format)
+# sudo apt -y install libfontconfig1-dev
+# sudo apt-get install libcairo2-dev
 # install.packages("countreg", repos="http://R-Forge.R-project.org")
 # library(countreg)
 renv::snapshot()
@@ -565,6 +568,8 @@ sm<-st_transform(sm, st_crs(Rds))
 ## Flickr map
 PUD500m$PUD_b<-cut(PUD500m$PUD_YR_AVG,
                       breaks = c(1, 100, 200, 300, 400, 500, 600), labels = c("1-100","101-200","201-300","301-400","401-500","501-600"))
+
+cdp<-st_crop(cdp,bbox_new)
 a<-ggplot() +
   geom_sf(data=sm, color = "tan") +
   geom_sf(data=rd.sc, color = "grey") +
@@ -572,10 +577,12 @@ a<-ggplot() +
   scale_fill_brewer(palette = "Oranges", na.translate = FALSE, guide = guide_legend(override.aes = list(linetype = "blank"), title = "Flickr User Days")) + # https://github.com/tidyverse/ggplot2/issues/2763
   geom_sf(data=ESI, aes(color="ESI Line"), show.legend = TRUE) +
   scale_color_manual(values = c("ESI Line" = "black"), name = "") +
-  geom_sf_label(data = cdp, aes(label=NAME), size=2.5) +
+  geom_label_repel(data = cdp, aes(label=NAME, geometry = geometry), stat = "sf_coordinates", min.segment.length = 0, size=2.5, point.padding = NA) +
   coord_sf(xlim=c(-122.5402,-122.3882),ylim=c(37.38338,37.5586), datum = NA) +
   theme_void() +
-  theme(legend.position = c(0.25, 0.32), legend.margin = margin(-0.25,0,0,0, unit="cm"), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm"))
+  theme(legend.position = c(0.25, 0.32), legend.margin = margin(-0.25,0,0,0, unit="cm"), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm")) +
+  xlab(NULL) + 
+  ylab(NULL)
 
 ## Twitter map
 TUD500m$PUD_b<-cut(TUD500m$PUD_YR_AVG,
@@ -587,10 +594,12 @@ b<-ggplot() +
   geom_sf(data = TUD500m, aes(fill=PUD_b)) +
   scale_fill_brewer(palette = "Oranges", na.translate = FALSE, guide = guide_legend(override.aes = list(linetype = "blank"), title = "Twitter User Days")) + # https://github.com/tidyverse/ggplot2/issues/2763
   geom_sf(data=ESI, color = "black") +
-  geom_sf_label(data = cdp, aes(label=NAME), size=2.5) +
+  geom_label_repel(data = cdp, aes(label=NAME, geometry = geometry), stat = "sf_coordinates", min.segment.length = 0, size=2.5, point.padding = NA) +
   coord_sf(xlim=c(-122.5402,-122.3882),ylim=c(37.38338,37.5586), datum = NA) +
   theme_void() +
-  theme(legend.position = c(0.25, 0.27), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm"))
+  theme(legend.position = c(0.25, 0.27), panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), plot.margin=unit(c(0.1,0.1,0.1,0.1),"cm")) +
+  xlab(NULL) + 
+  ylab(NULL)
 
 # Modifying the bounding box https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
 bbox_new<-st_bbox(bbox)
@@ -613,23 +622,31 @@ coler1<-brewer.pal(12,"Paired")
 coler2<-brewer.pal(12,"Set2")
 coler1<-c(coler1,coler2)
 
-ESI_bbox<-st_crop(ESI_bbox, xmin = -122.51, xmax = -122.39,
-                                    ymin = 37.46121, ymax = 37.52164)
+ESI_bbox<-st_crop(ESI_bbox, xmin = -122.52, xmax = -122.38,
+                                    ymin = 37.47, ymax = 37.52)
+rd.sc_bbox<-st_crop(rd.sc, xmin = -122.52, xmax = -122.38,
+                                    ymin = 37.47, ymax = 37.52)
+sm_bbox<-st_crop(sm, xmin = -122.52, xmax = -122.38,
+                                    ymin = 37.47, ymax = 37.52)
+TUD500m_bbox<-st_crop(TUD500m, xmin = -122.52, xmax = -122.38,
+                                    ymin = 37.47, ymax = 37.52)
 
 c<-ggplot() +
-  geom_sf(data=sm, color = "tan") +
-  geom_sf(data=rd.sc, color = "grey") +
-  geom_sf(data=TUD500m, color = "black") +
+  geom_sf(data=sm_bbox, color = "tan") +
+  geom_sf(data=rd.sc_bbox, color = "grey") +
+  geom_sf(data=TUD500m_bbox, color = "black") +
   geom_sf(data=ESI_bbox, aes(color=I1), lwd = 2.5, show.legend = FALSE) +
   scale_color_manual(values = coler1) +
   geom_sf(data=ESI_bbox, aes(color=I2), lwd = .75, show.legend = "line") +
-  scale_color_manual(values = coler1, name = "ESI Classes", guide = guide_legend(override.aes = list(shape = NA, lwd = 2))) +
-  coord_sf(xlim=c(-122.5,-122.39),ylim=c(37.47121,37.51164), datum = NA) + #bbox_new
-  theme_minimal() +
-  theme(panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), legend.position = c(0.76, 0.56), plot.margin=margin(0, 0, 0, 0, "cm"), legend.background = element_rect(fill="white", size=0.5, linetype="solid"))
+  scale_color_manual(values = coler1, name = "NOAA ESI Classes", guide = guide_legend(override.aes = list(shape = NA, lwd = 2))) +
+  coord_sf(xlim=c(-122.52,-122.38),ylim=c(37.47,37.52), datum = NA, expand = FALSE) + #bbox_new
+  theme_void() +
+  theme(panel.background = element_rect(fill = "aliceblue", color = NA), axis.title.x=element_blank(), axis.title.y=element_blank(), legend.text=element_text(size=7), legend.title=element_text(size=8), legend.position = c(0.76, 0.5), plot.margin=margin(0, 0, 0, 0, "cm"), legend.background = element_rect(fill="white", size=0.5, linetype="solid")) +
+  xlab(NULL) + 
+  ylab(NULL)
 
-p<-(a + b) / c
-p<-c/(a+b)
+p<-c/(a+b) + theme(base_family = "mono")
 ggsave("p.eps",p)
-#p
+
+# Notes - if you used fixed width spatial plots as inputs into a multi-row patchwork plot, it appears that you are going to get some excessive white space between plots. Can edit this after in illustrator. Cropping the inputs prior to plotting removes a lot of excess vector content outside the coord_sf boundaries that is a pain to handle in illustrator.
 ```
