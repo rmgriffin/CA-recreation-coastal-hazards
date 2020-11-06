@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "svglite") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -19,9 +19,6 @@ for (p in PKG) {
     require(p,character.only = TRUE)}
 }
 rm(PKG,p)
-# svglite may need these commands run in terminal first (this package is to save ggplots in *.svg format)
-# sudo apt -y install libfontconfig1-dev
-# sudo apt-get install libcairo2-dev
 # install.packages("countreg", repos="http://R-Forge.R-project.org")
 # library(countreg)
 renv::snapshot()
@@ -648,5 +645,82 @@ c<-ggplot() +
 p<-c/(a+b) + theme(base_family = "mono")
 ggsave("p.eps",p)
 
-# Notes - if you used fixed width spatial plots as inputs into a multi-row patchwork plot, it appears that you are going to get some excessive white space between plots. Can edit this after in illustrator. Cropping the inputs prior to plotting removes a lot of excess vector content outside the coord_sf boundaries that is a pain to handle in illustrator.
+# Notes - if you used fixed width spatial plots as inputs into a multi-row patchwork plot, it appears that you are going to get some excessive white space between plots. Can edit this after in illustrator. Also, cropping the inputs prior to plotting removes a lot of excess vector content outside the coord_sf boundaries that is a pain to handle in illustrator.
+```
+
+```{r `scatterplot prep`, include=FALSE}
+# Create inverse hyperbolic sine transformations of all visitation variables (use IHS to deal with lots of zeros that we don't want to throw away http://marcfbellemare.com/wordpress/12856#more-12856
+# doi 10.1111/obes.12325
+ihs <- function(x) { # Define inverse hyperbolic sine function
+  y <- log(x + sqrt(x^2 + 1))
+  return(y)
+}
+
+df$source<-as.factor(df$source)
+
+# Long to wide for scatter plot in ggplot2
+df1<-pivot_wider(data = df, id_cols = c(id,hres), names_from = source, values_from = ud)
+df1$ihsPUD<-ihs(df1$PUD)
+df1$ihsTUD<-ihs(df1$TUD)
+
+# Plot
+# ggplot(df1, aes(x=PUD,y=TUD, color=hres))+
+#   geom_point() +
+#   geom_smooth(method = lm) 
+# 
+# ggplot(df1[df1$hres==1000,], aes(x=PUD,y=TUD))+
+#   geom_point() +
+#   geom_smooth(method = lm)
+# 
+# ggplot(df1, aes(x=ihsPUD,y=ihsTUD, color=hres))+
+#   geom_point() +
+#   geom_smooth(method = lm) 
+
+ggplot(df1[df1$hres==1000,], aes(x=ihsPUD,y=ihsTUD))+
+  geom_point() +
+  geom_smooth(method = lm) +
+  theme_classic()
+
+# Statistical comparison of IHS vs raw data
+summary(md<-lm(TUD ~ PUD, data = df1[df1$hres==1000,])) # Untransformed
+# https://rpubs.com/iabrady/residual-analysis
+plot(md, which=1, col=c("blue")) # Residual plot
+plot(md, which=2, col=c("red")) # Q-Q plot
+# shapiro.test(md[['residuals']]) # can't use for samples > 5000
+plot(md, which=3, col=c("blue"))  # Scale-Location Plot
+plot(md, which=5, col=c("blue"))  # Residuals vs Leverage
+nobs(lm(TUD ~ PUD, data = df1[df1$hres==1000,]))
+
+summary(md<-lm(ihsTUD ~ ihsPUD, data = df1[df1$hres==1000,])) # IHS transformed
+# https://rpubs.com/iabrady/residual-analysis
+plot(md, which=1, col=c("blue")) # Residual plot
+plot(md, which=2, col=c("red")) # Q-Q plot
+#shapiro.test(md[['residuals']]) # can't use for samples > 5000
+plot(md, which=3, col=c("blue"))  # Scale-Location Plot
+plot(md, which=5, col=c("blue"))  # Residuals vs Leverage
+nobs(lm(TUD ~ PUD, data = df1[df1$hres==1000,]))
+
+# QQ plot looks much closer to normal with the IHS transformation
+
+source("./SurveyComp.R")
+
+```
+
+```{r `scatterplot`, echo=FALSE}
+
+ihsPTplot<-ggplot(df1[df1$hres==1000,], aes(x=ihsPUD,y=ihsTUD))+
+  geom_point() +
+  labs(x="IHS(Twitter User Days)",y="IHS(Photo User Days)") +
+  geom_smooth(method = lm, color = "blue") +
+  theme_classic() +
+  stat_cor(aes(label = ..rr.label..), color = "blue", geom = "label")
+
+ihsPTplot + surveycomp1
+
+```
+
+```{r `regression tree`, echo=FALSE}
+
+
+
 ```
