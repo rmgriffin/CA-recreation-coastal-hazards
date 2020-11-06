@@ -1,7 +1,7 @@
 options(scipen=999) # Bias against scientific notation
 
 # Packages
-PKG <- c("rgdal", "maptools", "gridExtra", "sf", "rgeos", "reticulate", "raster", "ggplot2", "reshape", "foreign", "dplyr", "stringr") 
+PKG <- c("rgdal", "maptools", "gridExtra", "sf", "rgeos", "reticulate", "raster", "ggplot2", "reshape", "foreign", "dplyr", "stringr", "ggpubr") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -147,14 +147,14 @@ smcp<-read.csv("./Data/SanMateoParks.csv", header = TRUE)
 ### Combine data and plot
 # The below also standardizes reporting, to annual visits/PUD
 parkscoast0<-parks %>% filter(ihsxall > 0 & coast ==1) # Only using obs on the coast and >0 
-d1<-select(parkscoast0, c(PUDall,Xall)) %>% st_set_geometry(NULL)
+d1<-dplyr::select(parkscoast0, c(PUDall,Xall)) %>% st_set_geometry(NULL)
 colnames(d1)<-c("PUD","X")
 d1$group<-"CA Parks"
 d1$PUD<-d1$PUD/4 # 4 years of data
 d1$X<-d1$X/4
-d2<-select(lab,c(PUD,X))
+d2<-dplyr::select(lab,c(PUD,X))
 d2$group<-"LA Beaches"
-d3<-select(smcp, c(PUD,visitor.counts))
+d3<-dplyr::select(smcp, c(PUD,visitor.counts))
 colnames(d3)<-c("PUD","X")
 d3$group<-"SMC Parks"
 d3$PUD<-d3$PUD*4 # 3 months of data
@@ -170,16 +170,19 @@ ggplot(ds, aes(x=X, y=PUD, color = group)) + geom_point() +
   labs(x="Surveyed total visitation",y="PUD Flickr") +
   theme_classic()
 
-ggplot(ds, aes(x=ihsX, y=ihsPUD, color = group)) + geom_point() + 
-  labs(x="Surveyed total visitation",y="PUD Flickr") +
+surveycomp1<-ggplot(ds, aes(x=ihsX, y=ihsPUD, color = group)) + geom_point() + 
+  labs(x="IHS(Surveyed annual visitation)",y="IHS(Photo User Days)") +
   theme_classic() +
-  geom_smooth(method = lm)
+  geom_smooth(method = lm) +
+  stat_cor(aes(label = ..rr.label.., color = group), geom = "label", show.legend = FALSE) +
+  theme(legend.title=element_blank(), legend.box.background = element_rect(colour = "black"), legend.position = c(0.5, 0.1), legend.direction="horizontal") +
+  guides(color = guide_legend(override.aes = list(linetype = 0, fill = NA))) 
 
 # CA Parks = summed total visitation, 2012 - 2016
 # SMC Parks = summed visitation, April through June 2016
 # LA Beaches = annual average visitation, 2008 - 2010
 
-surveycomp<-ggplot(ds, aes(x=ihsX, y=ihsPUD)) + geom_point() + 
+surveycomp2<-ggplot(ds, aes(x=ihsX, y=ihsPUD)) + geom_point() + 
   labs(x="Surveyed total visitation",y="PUD Flickr") +
   theme_classic() +
   geom_smooth(method = lm)
@@ -205,4 +208,4 @@ nobs(lm(X ~ PUD, data = ds))
 # QQ plot suggests that the residuals are not normally distributed using raw values, and that in particular there are issues with large values. IHS transformation returns normally distribute residuals
 # Shapiro Wilk test for normality also supports this interpretation
 
-rm(parks,PUD,lab,smcp,d1,d2,d3,mod,ihsmod)
+rm(parks,PUD,lab,smcp,d1,d2,d3,mod,ihsmod,parkscoast0,ds)
