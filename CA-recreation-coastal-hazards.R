@@ -268,7 +268,7 @@ rm(file.f,file.t)
 results$hres<-ifelse(results$hres==1, 1000,
                      ifelse(results$hres==2, 500, 250))
 
-write.csv(results,"results.csv",row.names = FALSE)
+write.csv(results,"lresults.csv",row.names = FALSE)
 
 unlink("./Data", recursive = TRUE) # Delete data directory
 
