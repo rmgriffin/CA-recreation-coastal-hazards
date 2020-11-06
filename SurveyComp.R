@@ -1,5 +1,3 @@
-#### Use this to start every program.  This clears out previous information from memory
-rm(list=ls())
 options(scipen=999) # Bias against scientific notation
 
 # Packages
