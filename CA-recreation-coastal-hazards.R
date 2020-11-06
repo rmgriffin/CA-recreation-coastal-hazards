@@ -52,41 +52,43 @@ data.processing<-function(f,t){
   ESI<-st_read("Data/ESIL_CA.gpkg")
   ESI<-st_transform(ESI, st_crs(Depvar))
   ESI<-ESI[,c("ESI","geom")]
+  ESIi<-st_intersection(ESI,Depvar)
+  ESIi<-ESIi[,c("ESI","geom")]
+  ESIi$length<-st_length(ESIi) # Lengths can be greater than the hexagonal size as some shorelines loop considerably within a hexagon
   # Spatial join of ESI and Depvar
-  df<-st_join(Depvar,ESI) # Spatial join
+  df<-st_join(Depvar,ESIi) # Spatial join
   df$ESI<-as.character(df$ESI)
   # Create a dataframe of only unique values (combinations of classes) within each hexagon
   df<-unique(df)
   df<-separate(df,ESI,c("I1","I2","I3"),"/",convert = TRUE) 
-  # Create indicators for all classes
-  df$x1a<-ifelse(df$I1 == "1A",1, ifelse(df$I2 == "1A", 1, ifelse(df$I3 == "1A",1,0)))
-  df$x1b<-ifelse(df$I1 == "1B",1, ifelse(df$I2 == "1B", 1, ifelse(df$I3 == "1B",1,0)))
-  df$x2a<-ifelse(df$I1 == "2A",1, ifelse(df$I2 == "2A", 1, ifelse(df$I3 == "2A",1,0)))
-  df$x3a<-ifelse(df$I1 == "3A",1, ifelse(df$I2 == "3A", 1, ifelse(df$I3 == "3A",1,0)))
-  df$x3b<-ifelse(df$I1 == "3B",1, ifelse(df$I2 == "3B", 1, ifelse(df$I3 == "3B",1,0)))
-  df$x4<-ifelse(df$I1 == "4",1, ifelse(df$I2 == "4", 1, ifelse(df$I3 == "4",1,0)))
-  df$x5<-ifelse(df$I1 == "5",1, ifelse(df$I2 == "5", 1, ifelse(df$I3 == "5",1,0)))
-  df$x6a<-ifelse(df$I1 == "6A",1, ifelse(df$I2 == "6A", 1, ifelse(df$I3 == "6A",1,0)))
-  df$x7<-ifelse(df$I1 == "7",1, ifelse(df$I2 == "7", 1, ifelse(df$I3 == "7",1,0)))
-  df$x6b<-ifelse(df$I1 == "6B",1, ifelse(df$I2 == "6B", 1, ifelse(df$I3 == "6B",1,0)))
-  df$x8a<-ifelse(df$I1 == "8A",1, ifelse(df$I2 == "8A", 1, ifelse(df$I3 == "8A",1,0)))
-  df$x8b<-ifelse(df$I1 == "8B",1, ifelse(df$I2 == "8B", 1, ifelse(df$I3 == "8B",1,0)))
-  df$x8c<-ifelse(df$I1 == "8C",1, ifelse(df$I2 == "8C", 1, ifelse(df$I3 == "8C",1,0)))
-  df$x9a<-ifelse(df$I1 == "9A",1, ifelse(df$I2 == "9A", 1, ifelse(df$I3 == "9A",1,0)))
-  df$x9b<-ifelse(df$I1 == "9B",1, ifelse(df$I2 == "9B", 1, ifelse(df$I3 == "9B",1,0)))
-  df$x10a<-ifelse(df$I1 == "10A",1, ifelse(df$I2 == "10A", 1, ifelse(df$I3 == "10A",1,0)))
-  df$xU<-ifelse(df$I1 == "U",1, ifelse(df$I2 == "U", 1, ifelse(df$I3 == "U",1,0)))
+  # Create variables for all classes and populate them with relevant length
+  df$x1a<-ifelse(df$I1 == "1A",df$length, ifelse(df$I2 == "1A",df$length, ifelse(df$I3 == "1A",df$length,0)))
+  df$x1b<-ifelse(df$I1 == "1B",df$length, ifelse(df$I2 == "1B",df$length, ifelse(df$I3 == "1B",df$length,0)))
+  df$x2a<-ifelse(df$I1 == "2A",df$length, ifelse(df$I2 == "2A",df$length, ifelse(df$I3 == "2A",df$length,0)))
+  df$x3a<-ifelse(df$I1 == "3A",df$length, ifelse(df$I2 == "3A",df$length, ifelse(df$I3 == "3A",df$length,0)))
+  df$x3b<-ifelse(df$I1 == "3B",df$length, ifelse(df$I2 == "3B",df$length, ifelse(df$I3 == "3B",df$length,0)))
+  df$x4<-ifelse(df$I1 == "4",df$length, ifelse(df$I2 == "4", 1,ifelse(df$I3 == "4",df$length,0)))
+  df$x5<-ifelse(df$I1 == "5",df$length, ifelse(df$I2 == "5", 1,ifelse(df$I3 == "5",df$length,0)))
+  df$x6a<-ifelse(df$I1 == "6A",df$length, ifelse(df$I2 == "6A",df$length, ifelse(df$I3 == "6A",df$length,0)))
+  df$x7<-ifelse(df$I1 == "7",df$length, ifelse(df$I2 == "7", 1,ifelse(df$I3 == "7",df$length,0)))
+  df$x6b<-ifelse(df$I1 == "6B",df$length, ifelse(df$I2 == "6B",df$length, ifelse(df$I3 == "6B",df$length,0)))
+  df$x8a<-ifelse(df$I1 == "8A",df$length, ifelse(df$I2 == "8A",df$length, ifelse(df$I3 == "8A",df$length,0)))
+  df$x8b<-ifelse(df$I1 == "8B",df$length, ifelse(df$I2 == "8B",df$length, ifelse(df$I3 == "8B",df$length,0)))
+  df$x8c<-ifelse(df$I1 == "8C",df$length, ifelse(df$I2 == "8C",df$length, ifelse(df$I3 == "8C",df$length,0)))
+  df$x9a<-ifelse(df$I1 == "9A",df$length, ifelse(df$I2 == "9A",df$length, ifelse(df$I3 == "9A",df$length,0)))
+  df$x9b<-ifelse(df$I1 == "9B",df$length, ifelse(df$I2 == "9B",df$length, ifelse(df$I3 == "9B",df$length,0)))
+  df$x10a<-ifelse(df$I1 == "10A",df$length, ifelse(df$I2 == "10A",df$length, ifelse(df$I3 == "10A",df$length,0)))
+  df$xU<-ifelse(df$I1 == "U",df$length, ifelse(df$I2 == "U",df$length, ifelse(df$I3 == "U",df$length,0)))
   # Replace NAs with zeros
   df[is.na(df)]<-0
   # Aggregating data by factor (observation is a hexagon, unique by id). "Max" ensures we get a 1, even when there are multiple 1's for the same class per hexagon
   df<-subset(df, select = c("id","x1a","x1b","x2a","x3a","x3b","x4","x5","x6a","x6b","x7","x8a","x8b","x8c","x9a","x9b","x10a","xU"))
   df$geom<-NULL
-  df<-aggregate(. ~ id,df,max)
+  df<-aggregate(. ~ id,df,sum)
   # Rejoinging aggregated data to hexagons
   df<-merge(Depvar,df,"id")
   # Lots of observations that do not overlap shoreline layer
   df$types<-df$x1a+df$x1b+df$x2a+df$x3a+df$x3b+df$x4+df$x5+df$x6a+df$x6b+df$x7+df$x8a+df$x8b+df$x8c+df$x9a+df$x9b+df$x10a+df$xU
-  table(df$types)
   df<-df[which(df$types!=0),]
   #st_write(df,dsn="validation.gpkg",layer="df")
   # Removing unneeded vars
