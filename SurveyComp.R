@@ -161,18 +161,18 @@ colnames(d3)<-c("PUD","X")
 d3$group<-"SMC Parks"
 d3$PUD<-d3$PUD*4 # 3 months of data
 d3$X<-d3$X*4
-df<-rbind(d1,d2,d3)
+ds<-rbind(d1,d2,d3)
 
-df$ihsPUD<-ihs(df$PUD)
-df$ihsX<-ihs(df$X)
+ds$ihsPUD<-ihs(ds$PUD)
+ds$ihsX<-ihs(ds$X)
 
-df$group<-as.factor(df$group)
+ds$group<-as.factor(ds$group)
 
-ggplot(df, aes(x=X, y=PUD, color = group)) + geom_point() + 
+ggplot(ds, aes(x=X, y=PUD, color = group)) + geom_point() + 
   labs(x="Surveyed total visitation",y="PUD Flickr") +
   theme_classic()
 
-ggplot(df, aes(x=ihsX, y=ihsPUD, color = group)) + geom_point() + 
+ggplot(ds, aes(x=ihsX, y=ihsPUD, color = group)) + geom_point() + 
   labs(x="Surveyed total visitation",y="PUD Flickr") +
   theme_classic() +
   geom_smooth(method = lm)
@@ -181,28 +181,30 @@ ggplot(df, aes(x=ihsX, y=ihsPUD, color = group)) + geom_point() +
 # SMC Parks = summed visitation, April through June 2016
 # LA Beaches = annual average visitation, 2008 - 2010
 
-ggplot(df, aes(x=ihsX, y=ihsPUD)) + geom_point() + 
+surveycomp<-ggplot(ds, aes(x=ihsX, y=ihsPUD)) + geom_point() + 
   labs(x="Surveyed total visitation",y="PUD Flickr") +
   theme_classic() +
   geom_smooth(method = lm)
 
 # Ratio of X to PUD, all grouped
-summary(mod<-lm(X ~ PUD, data = df)) # Untransformed
+summary(mod<-lm(X ~ PUD, data = ds)) # Untransformed
 # https://rpubs.com/iabrady/residual-analysis
 plot(mod, which=1, col=c("blue")) # Residual plot
 plot(mod, which=2, col=c("red")) # Q-Q plot
 shapiro.test(mod[['residuals']])
 plot(mod, which=3, col=c("blue"))  # Scale-Location Plot
 plot(mod, which=5, col=c("blue"))  # Residuals vs Leverage
-nobs(lm(X ~ PUD, data = df))
+nobs(lm(X ~ PUD, data = ds))
 
-summary(ihsmod<-lm(ihsX ~ ihsPUD, data = df)) # Inverse hyperbolic sine transformation
+summary(ihsmod<-lm(ihsX ~ ihsPUD, data = ds)) # Inverse hyperbolic sine transformation
 plot(ihsmod, which=1, col=c("blue")) # Residual plot
 plot(ihsmod, which=2, col=c("red")) # Q-Q plot
 shapiro.test(ihsmod[['residuals']])
 plot(ihsmod, which=3, col=c("blue"))  # Scale-Location Plot
 plot(ihsmod, which=5, col=c("blue"))  # Residuals vs Leverage
-nobs(lm(X ~ PUD, data = df))
+nobs(lm(X ~ PUD, data = ds))
 
 # QQ plot suggests that the residuals are not normally distributed using raw values, and that in particular there are issues with large values. IHS transformation returns normally distribute residuals
 # Shapiro Wilk test for normality also supports this interpretation
+
+rm(parks,PUD,lab,smcp,d1,d2,d3,mod,ihsmod)
