@@ -39,7 +39,8 @@ Zero-inflated doesn't refer to lots of zeros in the outcome variable, but an out
 Let's first explore some summary statistics. 
 
 ```{r data, include=FALSE}
-df<-read_csv("results.csv") # Results of "CA-recreation-coastal-hazards.R"
+# source("./CA-recreation-coastal-hazards.R") # Produces "lresults.csv" in next line, loads data needed for all scripts
+df<-read_csv("lresults.csv") # Results of "CA-recreation-coastal-hazards.R"
 df<-df[complete.cases(df),] # drops a few observations where the precipitation and air temp rasters returned NAs due to inadequate coverage
 # rescaling population to thousands and distances to km, to deal with model convergence issues
 df$sumpop<-df$sumpop/1000
