@@ -94,21 +94,21 @@ Summary statistics are shown for all potential continuous predictors. There is l
 # Filtering area of influence of amenities represented in Yourcoast database
 df<-mutate_at(df, vars(BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH), list(~ ifelse(YCdist>1000, 0, .)))
 
-d1<-datasummary((`Exposed rocky shore`=x1a ) + (`Exposed solid man-made structures`=x1b) + (`Exposed wave-cut platforms in bedrock`=x2a) + (`Fine-to-medium grain sand beaches`=x3a) + (`Scarps and steep slopes in sand`=x3b) + (`Coarse-grained sand beaches`=x4) + (`Mixed sand and gravel beaches`=x5) + (`Gravel beaches`=x6a) + (`Riprap`=x6b) + (`Exposed tidal flats`=x7) + (`Sheltered rocky shores`=x8a) + (`Sheltered man-made structures`=x8b) + (`Sheltered riprap`=x8c) + (`Sheltered tidal flat`=x9a) + (`Vegetated low riverine banks`=x9b) + (`Salt and brackish marshes`=x10a) + (`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'Binary Predictors 250m')
-d2<-datasummary((`Exposed rocky shore`=x1a ) + (`Exposed solid man-made structures`=x1b) + (`Exposed wave-cut platforms in bedrock`=x2a) + (`Fine-to-medium grain sand beaches`=x3a) + (`Scarps and steep slopes in sand`=x3b) + (`Coarse-grained sand beaches`=x4) + (`Mixed sand and gravel beaches`=x5) + (`Gravel beaches`=x6a) + (`Riprap`=x6b) + (`Exposed tidal flats`=x7) + (`Sheltered rocky shores`=x8a) + (`Sheltered man-made structures`=x8b) + (`Sheltered riprap`=x8c) + (`Sheltered tidal flat`=x9a) + (`Vegetated low riverine banks`=x9b) + (`Salt and brackish marshes`=x10a) + (`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'Binary Predictors 1000m')
+d1<-datasummary((`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'Binary Predictors 250m')
+d2<-datasummary((`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'Binary Predictors 1000m')
 
 knitr::kables(list(d1,d2)) %>%
   kable_styling(position = "center", bootstrap_options = "none")
 
-d1<-datasummary((`# of ESI types`=types) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'ESI Types 250m')
-d2<-datasummary((`# of ESI types`=types) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'ESI Types 1000m')
+d3<-datasummary((`Exposed rocky shore`=x1a ) + (`Exposed solid man-made structures`=x1b) + (`Exposed wave-cut platforms in bedrock`=x2a) + (`Fine-to-medium grain sand beaches`=x3a) + (`Scarps and steep slopes in sand`=x3b) + (`Coarse-grained sand beaches`=x4) + (`Mixed sand and gravel beaches`=x5) + (`Gravel beaches`=x6a) + (`Riprap`=x6b) + (`Exposed tidal flats`=x7) + (`Sheltered rocky shores`=x8a) + (`Sheltered man-made structures`=x8b) + (`Sheltered riprap`=x8c) + (`Sheltered tidal flat`=x9a) + (`Vegetated low riverine banks`=x9b) + (`Salt and brackish marshes`=x10a) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'ESI mean distance in meters @ 250m resolution')
+d4<-datasummary((`Exposed rocky shore`=x1a ) + (`Exposed solid man-made structures`=x1b) + (`Exposed wave-cut platforms in bedrock`=x2a) + (`Fine-to-medium grain sand beaches`=x3a) + (`Scarps and steep slopes in sand`=x3b) + (`Coarse-grained sand beaches`=x4) + (`Mixed sand and gravel beaches`=x5) + (`Gravel beaches`=x6a) + (`Riprap`=x6b) + (`Exposed tidal flats`=x7) + (`Sheltered rocky shores`=x8a) + (`Sheltered man-made structures`=x8b) + (`Sheltered riprap`=x8c) + (`Sheltered tidal flat`=x9a) + (`Vegetated low riverine banks`=x9b) + (`Salt and brackish marshes`=x10a) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'ESI mean distance in meters @ 1000m resolution')
 
-knitr::kables(list(d1,d2)) %>%
+knitr::kables(list(d3,d4)) %>%
   kable_styling(position = "center", bootstrap_options = "none")
 
 ```
 
-These values represent proportions of observations intersecting with ESI types, or within 1km of amenities in the [California Coastal Commission Yourcoast database](https://www.coastal.ca.gov/YourCoast/#/map). Amenities do not change markedly between resolutions as they are based on intersection with a buffer (within 1km of Yourcoast geotagged location), but there are more ESI types per observation as the resolution gets coarser. 
+These values represent proportions of observations intersecting with ESI types, or within 1km of amenities in the [California Coastal Commission Yourcoast database](https://www.coastal.ca.gov/YourCoast/#/map). Amenities do not change markedly between resolutions as they are based on intersection with a buffer (within 1km of Yourcoast geotagged location). Most notable output from the summary of ESI lengths is that some types (sheltered tidal flats, marshes, etc.) tend to wind considerably leading to longer lateral length than other types. Also note that, when more than one type is present, all types are assigned the full length of the ESI segment, leading to aggregate ESI lengths that tend to exceed the resolution size. This effect is not just due to winding shorelines.  
 
 ```{r correlationESI, echo=FALSE, fig.align="center"}
 cormat<-round(cor(df[,3:18]),2)
@@ -134,20 +134,20 @@ Correlogram of other predictors. Relationships are stable across resolutions; th
 
 ```{r `ESI crosswalk`, echo=FALSE}
 
-df$RockyShore<-pmax(df$x1a,df$x2a,df$x6a,df$x8a)
-df$SandyBeach<-pmax(df$x3a,df$x3b,df$x4,df$x5)
-df$Marshes<-pmax(df$x9a,df$x9b,df$x10a)
-df$Armored<-pmax(df$x1b,df$x6b,df$x8b,df$x8c)
+df$RockyShore<-df$x1a + df$x2a + df$x6a +df$x8a
+df$SandyBeach<-df$x3a + df$x3b + df$x4 + df$x5
+df$Marshes<-df$x9a + df$x9b + df$x10a
+df$Armored<-df$x1b + df$x6b + df$x8b + df$x8c
 
-d1<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'Binary Predictors 1000m')
-d2<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==500,],fmt="%.2f", title = 'Binary Predictors 500m')
-d3<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'Binary Predictors 250m')
+d1<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'ESI Length (m) @ 1000m')
+d2<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==500,],fmt="%.2f", title = 'ESI Length (m) @ 500m')
+d3<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'ESI Length (m) @ 250m')
 
 knitr::kables(list(d1,d2,d3)) %>%
   kable_styling(position = "center", bootstrap_options = "none")
 ```
 
-A proposed crosswalk of ESI types to fewer shoreline classes: Rocky shore {1A, 2A, 6A, 8A}, Sandy beach {3A, 3B, 4, 5}, Marshes {9A, 9B, 10A}, Armored shore {1B, 6B, 8B, 8C}. Again, there are more ESI types per observation as the resolution gets coarser. 
+A proposed crosswalk of ESI types to fewer shoreline classes: Rocky shore {1A, 2A, 6A, 8A}, Sandy beach {3A, 3B, 4, 5}, Marshes {9A, 9B, 10A}, Armored shore {1B, 6B, 8B, 8C}. 
 
 
 ```{r `regressions Poisson`, echo=FALSE}
@@ -289,7 +289,7 @@ ggplot(bp.5) +
 
 Rootograms are a useful way to compare model selection between these two, as they assess [overdispersion](https://www.theanalysisfactor.com/poisson-or-negative-binomial-using-count-model-diagnostics-to-select-a-model/), a key selection criteria between the models. Unfortunately, there is no ready package to summarize the results we have here, so we resort to side-by-side count plots.
 
-The predictive accuracy of the ZINB seems to be qualitatively better than the other models
+The predictive accuracy of the Hurdle model seems to be qualitatively better than the other models
 
 ```{r `regression comparison twitter`, echo=FALSE}
 models <- list()
@@ -316,7 +316,7 @@ summary(models[[4]])
 summary(models[[5]])
 ```
 
-We have estimated models that treat this as a one (Poisson, Quasi-Poisson, Negative Binomial) or two-stage process (ZINB and hurdle). Based on the log-likelihood and BIC, the hurdle model is the best fit.
+We have estimated models that treat this as a one (Poisson, Quasi-Poisson, Negative Binomial) or two-stage process (ZINB and hurdle). Based on the log-likelihood and BIC, the hurdle model is the best fit. We do not have a supportive theory for the zero modeling, however. The quasi-poisson model has the best fit of the remaining models, however the rootogram suggests the negative binomial may be the better fit. 
 
 ```{r `twitter rootograms`, echo=FALSE}
 
@@ -395,27 +395,28 @@ write.csv(df,"results2.csv", row.names = FALSE)
 # import delimited C:\Users\XPSXIII\Downloads\results2.csv
 # zinb ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="PUD"&hres==250, inflate(rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst) robust
 
-models[['PUD ZINB']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], zi = ~., family = nbinom2)
+models[['PUD Hurdle']]<-pscl::hurdle(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], dist = "negbin")
 
 models[['TUD Hurdle']]<-pscl::hurdle(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], dist = "negbin")
 
 summary(models[['TUD Hurdle']])
+summary(models[['PUD Hurdle']])
 ```
-Hurdle model for TUD 
+Hurdle model for TUD/PUD 
 
 ```{r `BPtestTUD`, echo=FALSE}
 # Breusch-Pagan test for heteroskedasticity
-bptest(models[['PUD ZINB']]) # p-value <2.2e-16
+bptest(models[['PUD Hurdle']]) 
 bptest(models[['TUD Hurdle']])
 ```
 Both models appear to be heteroskedastic according to a Breusch-Pagan test.
 
 ```{r `standard errors`, echo=FALSE}
 # Heteroskedasticity consistent stanard errors
+coeftest(models[['PUD Hurdle']], vcov = sandwich)
 coeftest(models[['TUD Hurdle']], vcov = sandwich)
 ```
-No approach for robust standard erros in R for ZINB estimated by glmmTMB, so that was exported to Stata to run with robust standard errors
-
+No approach for robust standard erros in R for ZINB estimated by glmmTMB, if needed.
 ##Draft figures for paper
 
 ```{r `map inputs`, echo=FALSE, include=FALSE}
