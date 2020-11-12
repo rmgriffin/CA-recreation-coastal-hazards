@@ -429,13 +429,6 @@
       "Repository": "CRAN",
       "Hash": "a54a7dfd68124abb2225dbfa9a85c457"
     },
-    "pscl": {
-      "Package": "pscl",
-      "Version": "1.5.5",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "c55158537b8c4754a8c3de3382f1a659"
-    },
     "purrr": {
       "Package": "purrr",
       "Version": "0.3.4",
