@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -197,27 +197,53 @@ msummary(models, stars = TRUE, title = "Negative binomial regression across data
 ```
 
 ```{r `regression comparison flickr`, echo=FALSE}
-invisible(glmmTMBControl(optCtrl=list(iter.max=1e4,eval.max=1e3))) 
-models <- list()
-models[['Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = poisson)
-models[['Quasi-Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = nbinom1)
-models[['Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = nbinom2)
-# Separating the model into two processes for the zeros and the non-zeros
-models[['Hurdle']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = "truncated_nbinom2", zi=~.)
-models[['Zero-inflated Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], zi = ~., family = nbinom2)
+regs<-function(rs,tipe){ # tipe is either "PUD" or "TUD" / rs is one of {25, 500, 1000}
+  models <- list()
+  models.rob<-list()
+  models[['Poisson']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source==tipe&df$hres==rs,], family = poisson)
+  models.rob[['Poisson']]<-coeftest(models[['Poisson']], vcov = sandwich)
+  models[['Quasi-Poisson']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source==tipe&df$hres==rs,], family = quasipoisson)
+  models.rob[['Quasi-Poisson']]<-coeftest(models[['Quasi-Poisson']], vcov = sandwich)
+  models[['Negative Binomial']]<-MASS::glm.nb(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source==tipe&df$hres==rs,])
+  models.rob[['Negative Binomial']]<-coeftest(models[['Negative Binomial']], vcov = sandwich)
+  models[['Hurdle']]<-hurdle(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source==tipe&df$hres==rs,], dist = "negbin")
+  models.rob[['Hurdle']]<-coeftest(models[['Hurdle']], vcov = sandwich)
+  models[['ZINB']]<-zeroinfl(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source==tipe&df$hres==rs,], dist = "negbin")
+  models.rob[['ZINB']]<-coeftest(models[['ZINB']], vcov = sandwich)
 
-gm<-modelsummary::gof_map
-gm$omit<-ifelse(gm$raw == "nobs"|gm$raw == "df.residual",TRUE,FALSE)
-rows<-data.frame("term"="Num.Obs","Poisson"="27315","Quasi-Poisson"="27315","Negative Binomial"="27315")
-attr(rows,"position")<-49
+  return(list(models,models.rob))
+  }
 
-msummary(models[1:3], stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution", gof_map = gm, add_rows = rows)
+PUD250<-regs(250,"PUD")
+PUD500<-regs(500,"PUD")
+PUD1000<-regs(1000,"PUD")
 
-# msummary(models[4], stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution", gof_map = gm)
+TUD250<-regs(250,"TUD")
+TUD500<-regs(500,"TUD")
+TUD1000<-regs(1000,"TUD")
+
+# # Template model builder implementation of models
+# invisible(glmmTMBControl(optCtrl=list(iter.max=1e4,eval.max=1e3))) 
+# Pmodels <- list()
+# Pmodels[['Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = poisson)
+# Pmodels[['Quasi-Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = nbinom1)
+# Pmodels[['Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = nbinom2)
+# # Separating the model into two processes for the zeros and the non-zeros
+# Pmodels[['Hurdle']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], family = "truncated_nbinom2", zi=~.)
+# Pmodels[['Zero-inflated Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], zi = ~., family = nbinom2)
 # 
-# msummary(models[5], stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution", gof_map = gm)
-summary(models[[4]])
-summary(models[[5]])
+# gm<-modelsummary::gof_map
+# gm$omit<-ifelse(gm$raw == "nobs"|gm$raw == "df.residual",TRUE,FALSE)
+# rows<-data.frame("term"="Num.Obs","Poisson"="27315","Quasi-Poisson"="27315","Negative Binomial"="27315")
+# attr(rows,"position")<-49
+# 
+# msummary(Pmodels[1:3], stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution", gof_map = gm, add_rows = rows)
+# 
+# # msummary(Pmodels[4], stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution", gof_map = gm)
+# # 
+# # msummary(Pmodels[5], stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution", gof_map = gm)
+# summary(Pmodels[[4]])
+# summary(Pmodels[[5]])
 
 ```
 
@@ -226,19 +252,35 @@ We have estimated models that treat this as a one (Poisson, Quasi-Poisson, Negat
 From a theoretical perspective shoreline visitation choice is not typically treated as a two-stage process in random utility models of visitation. Furthermore, the choice to visit the beach versus do other activities does not seem like it should be well-modeled by the predictors we have here, despite the better fit. Finally, we do not know the home locations or identities of visitors, so we have no reliable way to reconstruct their broader choice set or recover other social/demographic variables.
 
 ```{r `Flickr rootograms`, echo=FALSE}
-bp.1<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(models[['Poisson']],type = "response"))))
-colnames(bp.1)<-c("obs","pred")
-bp.1<-pivot_longer(bp.1, cols = c("obs","pred"), names_to = "status", values_to = "ud")
-bp.1$status<-as.factor(bp.1$status)
-bp.1$ud<-round(bp.1$ud)
-
-ggplot(bp.1) + 
+root<-function(x){ # x is a specific model in a list of outputs, i.e. PUD250[[1]]$Poisson 
+  name<-deparse(substitute(x)) %>% # Transforming variable name to string
+  str_split("\\[\\[",simplify = TRUE) # Splitting string at left brackets
+  name1<-name[1,1] # Extracting left string after split
+  name2<-name[1,2] 
+  name2<-str_split(name2,"\\$",simplify = TRUE)
+  name2<-name2[1,2]
+  name2<-gsub("`","",name2)
+  
+  bp<-cbind(df[df$source==str_sub(name1,1,3)&df$hres==noquote(str_sub(name1,4,7)),"ud"],(as.vector(predict(x,type = "response")))) # Uses string components to subset appropriate "source" and "hres" values
+  colnames(bp)<-c("obs","pred")
+  
+  bp<-pivot_longer(bp, cols = c("obs","pred"), names_to = "status", values_to = "ud")
+  bp$status<-as.factor(bp$status)
+  bp$ud<-round(bp$ud)
+  
+  bp<-ggplot(bp) + 
   stat_bin(aes(x=ud, fill=status), position = position_dodge(preserve = "single"), breaks = seq(0, 25, by = 1)) +
   scale_x_continuous(limits = c(0,25)) +
   theme_minimal() +
-  ggtitle("Poisson")
+  ggtitle(name2)
+  
+  return(bp)
+}  
 
-bp.2<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(models[['Quasi-Poisson']],type = "response"))))
+## Start here
+
+
+bp.2<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(Pmodels[['Quasi-Poisson']],type = "response"))))
 colnames(bp.2)<-c("obs","pred")
 bp.2<-pivot_longer(bp.2, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.2$status<-as.factor(bp.2$status)
@@ -250,7 +292,7 @@ ggplot(bp.2) +
   theme_minimal() +
   ggtitle("Quasi-Poisson")
 
-bp.3<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(models[['Negative Binomial']],type = "response"))))
+bp.3<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(Pmodels[['Negative Binomial']],type = "response"))))
 colnames(bp.3)<-c("obs","pred")
 bp.3<-pivot_longer(bp.3, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.3$status<-as.factor(bp.3$status)
@@ -262,7 +304,7 @@ ggplot(bp.3) +
   theme_minimal() +
   ggtitle("Negative Binomial")
 
-bp.4<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(models[['Hurdle']],type = "response"))))
+bp.4<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(Pmodels[['Hurdle']],type = "response"))))
 colnames(bp.4)<-c("obs","pred")
 bp.4<-pivot_longer(bp.4, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.4$status<-as.factor(bp.4$status)
@@ -274,7 +316,7 @@ ggplot(bp.4) +
   theme_minimal() +
   ggtitle("Hurdle")
 
-bp.5<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(models[['Zero-inflated Negative Binomial']],type = "response"))))
+bp.5<-cbind(df[df$source=="PUD"&df$hres==250,"ud"],(as.vector(predict(Pmodels[['Zero-inflated Negative Binomial']],type = "response"))))
 colnames(bp.5)<-c("obs","pred")
 bp.5<-pivot_longer(bp.5, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.5$status<-as.factor(bp.5$status)
@@ -292,35 +334,35 @@ Rootograms are a useful way to compare model selection between these two, as the
 The predictive accuracy of the Hurdle model seems to be qualitatively better than the other models
 
 ```{r `regression comparison twitter`, echo=FALSE}
-models <- list()
-models[['Poisson']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = poisson) # glmmTMB doesn't converge
-models[['Quasi-Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = nbinom1)
-models[['Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = nbinom2)
+Tmodels <- list()
+Tmodels[['Poisson']]<-glm(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = poisson) # glmmTMB doesn't converge
+Tmodels[['Quasi-Poisson']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = nbinom1)
+Tmodels[['Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = nbinom2)
 # Separating the model into two processes for the zeros and the non-zeros does converge, unlike for the Flickr data
-models[['Hurdle']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = "truncated_nbinom2", zi=~.)
-models[['Zero-inflated Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], zi = ~., family = nbinom2)
+Tmodels[['Hurdle']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], family = "truncated_nbinom2", zi=~.)
+Tmodels[['Zero-inflated Negative Binomial']]<-glmmTMB(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], zi = ~., family = nbinom2)
 
 gm<-modelsummary::gof_map
 gm$omit<-ifelse(gm$raw == "nobs"|gm$raw == "df.residual"|gm$raw == "deviance"|gm$raw == "df.null"|gm$raw == "sigma"|gm$raw == "null.deviance",TRUE,FALSE)
 rows<-data.frame("term"="Num.Obs","Poisson"="27315","Quasi-Poisson"="27315","Negative Binomial"="27315")
 attr(rows,"position")<-49
 
-msummary(models[1:3], stars = TRUE, title = "Different regression approaches, Twitter User Days 250m resolution", gof_map = gm, add_rows = rows)
+msummary(Tmodels[1:3], stars = TRUE, title = "Different regression approaches, Twitter User Days 250m resolution", gof_map = gm, add_rows = rows)
 
-# msummary(models[4], stars = TRUE, title = "Different regression approaches, Twitter User Days 250m resolution", gof_map = gm)
+# msummary(Tmodels[4], stars = TRUE, title = "Different regression approaches, Twitter User Days 250m resolution", gof_map = gm)
 # 
-# msummary(models[5], stars = TRUE, title = "Different regression approaches, Twitter User Days 250m resolution", gof_map = gm)
+# msummary(Tmodels[5], stars = TRUE, title = "Different regression approaches, Twitter User Days 250m resolution", gof_map = gm)
 
-summary(models[[4]])
+summary(Tmodels[[4]])
 
-summary(models[[5]])
+summary(Tmodels[[5]])
 ```
 
 We have estimated models that treat this as a one (Poisson, Quasi-Poisson, Negative Binomial) or two-stage process (ZINB and hurdle). Based on the log-likelihood and BIC, the hurdle model is the best fit. We do not have a supportive theory for the zero modeling, however. The quasi-poisson model has the best fit of the remaining models, however the rootogram suggests the negative binomial may be the better fit. 
 
 ```{r `twitter rootograms`, echo=FALSE}
 
-bp.1<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(models[['Poisson']],type = "response"))))
+bp.1<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(Tmodels[['Poisson']],type = "response"))))
 colnames(bp.1)<-c("obs","pred")
 bp.1<-pivot_longer(bp.1, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.1$status<-as.factor(bp.1$status)
@@ -332,7 +374,7 @@ ggplot(bp.1) +
   theme_minimal() +
   ggtitle("Poisson")
 
-bp.2<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(models[['Quasi-Poisson']],type = "response"))))
+bp.2<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(Tmodels[['Quasi-Poisson']],type = "response"))))
 colnames(bp.2)<-c("obs","pred")
 bp.2<-pivot_longer(bp.2, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.2$status<-as.factor(bp.2$status)
@@ -344,7 +386,7 @@ ggplot(bp.2) +
   theme_minimal() +
   ggtitle("Quasi-Poisson")
 
-bp.3<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(models[['Negative Binomial']],type = "response"))))
+bp.3<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(Tmodels[['Negative Binomial']],type = "response"))))
 colnames(bp.3)<-c("obs","pred")
 bp.3<-pivot_longer(bp.3, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.3$status<-as.factor(bp.3$status)
@@ -356,7 +398,7 @@ ggplot(bp.3) +
   theme_minimal() +
   ggtitle("Negative Binomial")
 
-bp.4<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(models[['Hurdle']],type = "response"))))
+bp.4<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(Tmodels[['Hurdle']],type = "response"))))
 colnames(bp.4)<-c("obs","pred")
 bp.4<-pivot_longer(bp.4, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.4$status<-as.factor(bp.4$status)
@@ -368,7 +410,7 @@ ggplot(bp.4) +
   theme_minimal() +
   ggtitle("Hurdle")
 
-bp.5<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(models[['Zero-inflated Negative Binomial']],type = "response"))))
+bp.5<-cbind(df[df$source=="TUD"&df$hres==250,"ud"],(as.vector(predict(Tmodels[['Zero-inflated Negative Binomial']],type = "response"))))
 colnames(bp.5)<-c("obs","pred")
 bp.5<-pivot_longer(bp.5, cols = c("obs","pred"), names_to = "status", values_to = "ud")
 bp.5$status<-as.factor(bp.5$status)
@@ -385,39 +427,50 @@ ggplot(bp.5) +
 The predictive accuracy of the hurdle model seems to be qualitatively better than the other models
 
 ```{r `standard errors`, echo=FALSE}
-models <- list()
-# Need to use pscl package versus glmmTMB for computing heteroskedastic robust standard errors, but there are errors with the variance estimates for the flickr data. Tried various reduced versions using statistical significance from the glmmTMB estimates, did not work. 
-
 write.csv(df,"results2.csv", row.names = FALSE)
 
 # Model does produce robust standard errors in Stata. Code is: 
 
 # import delimited C:\Users\XPSXIII\Downloads\results2.csv
 # zinb ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="PUD"&hres==250, inflate(rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst) robust
-
-models[['PUD Hurdle']]<-pscl::hurdle(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==250,], dist = "negbin")
-
-models[['TUD Hurdle']]<-pscl::hurdle(ud ~ RockyShore + SandyBeach + Marshes + Armored + rdist + sumpop + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="TUD"&df$hres==250,], dist = "negbin")
-
-summary(models[['TUD Hurdle']])
-summary(models[['PUD Hurdle']])
 ```
 Hurdle model for TUD/PUD 
 
 ```{r `BPtestTUD`, echo=FALSE}
-# Breusch-Pagan test for heteroskedasticity
-bptest(models[['PUD Hurdle']]) 
-bptest(models[['TUD Hurdle']])
+# Breusch-Pagan test for heteroskedasticity http://math.furman.edu/~dcs/courses/math47/R/library/lmtest/html/bptest.html
+map(Pmodels,bptest)
+map(Tmodels,bptest)
 ```
 Both models appear to be heteroskedastic according to a Breusch-Pagan test.
 
 ```{r `standard errors`, echo=FALSE}
-# Heteroskedasticity consistent stanard errors
-coeftest(models[['PUD Hurdle']], vcov = sandwich)
-coeftest(models[['TUD Hurdle']], vcov = sandwich)
+# Heteroskedasticity consistent standard errors https://stats.stackexchange.com/questions/117052/replicating-statas-robust-option-in-r
+coeftest(Tmodels[['Hurdle']], vcov = vcovHC(Tmodels[['Hurdle']], "HC1"))
+coeftest(Tmodels[['Hurdle']], vcov = sandwich)
+coeftest(Tmodels[['Hurdle']])
+
+coeftest(Pmodels[[1]], vcov = vcovHC(Pmodels[[1]], "HC1"))
+
+map(Tmodels,~ coeftest(.x, vcov = sandwich))
+
+
 ```
 No approach for robust standard erros in R for ZINB estimated by glmmTMB, if needed.
 ##Draft figures for paper
+
+```{r `regression tree`, echo=FALSE}
+# Following https://socviz.co/modeling.html
+plot(Pmodels[['Hurdle']], which=2, col=c("red")) # Q-Q plot
+
+mrgn_P<-margins(Pmodels[['Hurdle']], vcov = vcovHC(Pmodels[['Hurdle']])) # Huber-White Standard Error
+mrgn_T<-margins(Tmodels[['Hurdle']])
+
+summary(Pmodels[['Hurdle']])
+
+coeftest(Tmodels[['Hurdle']], vcov = sandwich)
+
+
+```
 
 ```{r `map inputs`, echo=FALSE, include=FALSE}
 # Guidance for tmaps package https://geocompr.robinlovelace.net/adv-map.html
@@ -721,8 +774,3 @@ ihsPTplot + surveycomp1
 
 ```
 
-```{r `regression tree`, echo=FALSE}
-
-
-
-```
