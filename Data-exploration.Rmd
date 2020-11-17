@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -22,6 +22,7 @@ rm(PKG,p)
 # install.packages("countreg", repos="http://R-Forge.R-project.org")
 # library(countreg)
 renv::snapshot()
+#renv::update()
 ```
 
 ## Analysis summary
@@ -222,6 +223,8 @@ From a theoretical perspective shoreline visitation choice is not typically trea
 # # msummary(Pmodels[5], stars = TRUE, title = "Different regression approaches, Flickr User Days 250m resolution", gof_map = gm)
 # summary(Pmodels[[4]])
 # summary(Pmodels[[5]])
+
+# No approach for robust standard errors in R for ZINB estimated by glmmTMB, if needed.
 ```
 
 ```{r `Rootograms`, echo=FALSE}
@@ -319,7 +322,7 @@ Troot
 Rootograms are a useful way to compare model selection between these two, as they assess [overdispersion](https://www.theanalysisfactor.com/poisson-or-negative-binomial-using-count-model-diagnostics-to-select-a-model/), a key selection criteria between the models. Unfortunately, there is no ready package to summarize the results we have here, so we resort to side-by-side count plots.
 
 ```{r `Stata code`, echo=FALSE}
-write.csv(df,"results2.csv", row.names = FALSE)
+# write.csv(df,"results2.csv", row.names = FALSE)
 
 # Code for ZINB model in Stata using results2.csv 
 
@@ -327,20 +330,116 @@ write.csv(df,"results2.csv", row.names = FALSE)
 # zinb ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="PUD"&hres==250, inflate(rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst) robust
 ```
 
-
-
-
-```{r, echo=FALSE}
+```{r, `Model selection` echo=FALSE}
 # Extract IC and log-likelihood values, make into a table
+AICS<-data.frame(c("Poisson","Quasi-Poisson","Negative Binomial","Hurdle","ZINB"))
+colnames(AICS)<-c("model")
+AICS$PUD1000<-map(PUD1000[[1]],AIC)
+AICS$PUD500<-map(PUD500[[1]],AIC)
+AICS$PUD250<-map(PUD250[[1]],AIC)
+AICS$TUD1000<-map(TUD1000[[1]],AIC)
+AICS$TUD500<-map(TUD500[[1]],AIC)
+AICS$TUD250<-map(TUD250[[1]],AIC)
 
-
+LL<-data.frame(c("Poisson","Quasi-Poisson","Negative Binomial","Hurdle","ZINB"))
+colnames(LL)<-c("model")
+LL$PUD1000<-map(PUD1000[[1]],logLik)
+LL$PUD500<-map(PUD500[[1]],logLik)
+LL$PUD250<-map(PUD250[[1]],logLik)
+LL$TUD1000<-map(TUD1000[[1]],logLik)
+LL$TUD500<-map(TUD500[[1]],logLik)
+LL$TUD250<-map(TUD250[[1]],logLik)
 ```
-No approach for robust standard errors in R for ZINB estimated by glmmTMB, if needed.
+
 ##Draft figures for paper
 
-```{r `regression tree`, echo=FALSE}
+```{r `geospatial data`, echo=FALSE, include=FALSE}
+PUD500m<-st_read("./Data/PUD_2005-2017_500m.gpkg")
+PUD500m$PUD_YR_AVG<-PUD500m$PUD_YR_AVG*13 # Total PUD vs annual average
+TUD500m<-st_read("./Data/TUD_2012-2017_500m.gpkg")
+TUD500m$PUD_YR_AVG<-TUD500m$PUD_YR_AVG*6 # Total TUD vs annual average
+PUD250m<-st_read("./Data/PUD_2005-2017_250m.gpkg")
+PUD250m$PUD_YR_AVG<-PUD250m$PUD_YR_AVG*13 
+TUD250m<-st_read("./Data/TUD_2012-2017_250m.gpkg")
+TUD250m$PUD_YR_AVG<-TUD250m$PUD_YR_AVG*6 
+PUD1km<-st_read("./Data/PUD_2005-2017_1000m.gpkg")
+PUD1km$PUD_YR_AVG<-PUD1km$PUD_YR_AVG*13
+TUD1km<-st_read("./Data/TUD_2012-2017_1000m.gpkg")
+TUD1km$PUD_YR_AVG<-TUD1km$PUD_YR_AVG*6
+```
+
+```{r `spatial autocorrelation`, echo=FALSE}
+# Global Moran's I, following https://rpubs.com/quarcs-lab/spatial-autocorrelation
+nP1000<-poly2nb(PUD1km,queen = FALSE)
+lnP1000<-nb2listw(nP1000)
+gMP1000<-moran.test(PUD1km$PUD_YR_AVG, lnP1000) # MI stat 7.034348e-01, p-value < 2.2e-16
+
+nP250<-poly2nb(PUD250m,queen = FALSE)
+lnP250<-nb2listw(nP250)
+gMP250<-moran.test(PUD250m$PUD_YR_AVG, lnP250) # MI stat 6.045783e-01, p-value < 2.2e-16 
+
+nP500<-poly2nb(PUD500m,queen = FALSE) 
+lnP500<-nb2listw(nP500)
+gMP500<-moran.test(PUD500m$PUD_YR_AVG, lnP500) # MI stat 6.885574e-01, p-value < 2.2e-16 
+
+nT1000<-poly2nb(TUD1km,queen = FALSE)
+lnT1000<-nb2listw(nT1000)
+gMT1000<-moran.test(TUD1km$PUD_YR_AVG, lnT1000) # MI stat 5.575148e-01, p-value < 2.2e-16 
+
+nT250<-poly2nb(TUD250m,queen = FALSE) 
+lnT250<-nb2listw(nT250)
+gMT250<-moran.test(TUD250m$PUD_YR_AVG, lnT250) # MI stat 5.092229e-01, p-value < 2.2e-16 
+
+nT500<-poly2nb(TUD500m,queen = FALSE)
+lnT500<-nb2listw(nT500)
+gMT500<-moran.test(TUD500m$PUD_YR_AVG, lnT500) # MI stat 5.911101e-01 , p-value < 2.2e-16 
+
+```
+
+```{r `map data/preparation`, echo=FALSE, include=FALSE}
+# Guidance for tmaps package https://geocompr.robinlovelace.net/adv-map.html
+
+Rds<-st_read("./Data/Roads_2015.gpkg") # Roads
+ESI<-st_read("./Data/ESIL_CA.gpkg") # ESI
+bbox<-filter(Rds, FULLNAME %in% c("Pilarcitos Ave")) # Bounding box
+
+ESI<-st_transform(ESI, st_crs(PUD500m))
+bbox<-st_transform(bbox, st_crs(ESI))
+PUD500m<-st_join(PUD500m,ESI, left = FALSE)
+
+TUD500m<-st_join(TUD500m,ESI, left = FALSE)
+
+# PUD250m<-st_join(PUD250m,ESI, left = FALSE)
+# 
+# TUD250m<-st_join(TUD250m,ESI, left = FALSE)
+
+# PUD1km<-st_join(PUD1km,ESI, left = FALSE)
+
+# TUD1km<-st_join(TUD1km,ESI, left = FALSE)
+```
+
+```{r `regression visuals`, echo=FALSE}
+## Table
+
+# Model summary table - doesn't work on hurdle or zero-inflated models, but does work for robust standard errors estimated via sandwich/lmtest
+msummary(PUD1000[[1]][1:3]) # Original standard error estimates
+msummary(PUD1000[[2]][1:3]) # Sandwich standard error estimates
+# # Coefficient plot - doesn't work on hurdle or zero-inflated models
+# modelplot(PUD1000[[1]][1:3])
+
+
+  a<-hurdle(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = "ud"), data = df[df$source=="PUD"&df$hres==250,], dist = "negbin")
+  
+  b<-coeftest(a, vcov = sandwich(a)) 
+
+  # coefci(a, vcov = sandwich)
+  m0 <- hurdle(ud ~ 1, data = df[df$source=="PUD"&df$hres==250,], dist = "negbin")
+  waldtest(m0, a, vcov = sandwich)
+  
+msummary(b)
+
+## Figure
 # Following https://socviz.co/modeling.html
-plot(Pmodels[['Hurdle']], which=2, col=c("red")) # Q-Q plot
 
 mrgn_P<-margins(Pmodels[['Hurdle']], vcov = vcovHC(Pmodels[['Hurdle']])) # Huber-White Standard Error
 mrgn_T<-margins(Tmodels[['Hurdle']])
@@ -352,40 +451,7 @@ coeftest(Tmodels[['Hurdle']], vcov = sandwich)
 
 ```
 
-```{r `map inputs`, echo=FALSE, include=FALSE}
-# Guidance for tmaps package https://geocompr.robinlovelace.net/adv-map.html
 
-Rds<-st_read("./Data/Roads_2015.gpkg") # Roads
-ESI<-st_read("./Data/ESIL_CA.gpkg") # ESI
-bbox<-filter(Rds, FULLNAME %in% c("Pilarcitos Ave")) # Bounding box
-
-PUD500m<-st_read("./Data/PUD_2005-2017_500m.gpkg")
-ESI<-st_transform(ESI, st_crs(PUD500m))
-bbox<-st_transform(bbox, st_crs(ESI))
-PUD500m<-st_join(PUD500m,ESI, left = FALSE)
-PUD500m$PUD_YR_AVG<-PUD500m$PUD_YR_AVG*13
-
-TUD500m<-st_read("./Data/TUD_2012-2017_500m.gpkg")
-TUD500m<-st_join(TUD500m,ESI, left = FALSE)
-TUD500m$PUD_YR_AVG<-TUD500m$PUD_YR_AVG*6
-
-# PUD250m<-st_read("./Data/PUD_2005-2017_250m.gpkg")
-# PUD250m<-st_join(PUD250m,ESI, left = FALSE)
-# PUD250m$PUD_YR_AVG<-PUD250m$PUD_YR_AVG*13 # Total PUD vs annual average
-# 
-# TUD250m<-st_read("./Data/TUD_2012-2017_250m.gpkg")
-# TUD250m<-st_join(TUD250m,ESI, left = FALSE)
-# TUD250m$PUD_YR_AVG<-TUD250m$PUD_YR_AVG*6 # Total TUD vs annual average
-# 
-# PUD1k<-st_read("./Data/PUD_2005-2017_1000m.gpkg")
-# PUD1k<-st_join(PUD1k,ESI, left = FALSE)
-# PUD1k$PUD_YR_AVG<-PUD1k$PUD_YR_AVG*13
-# 
-# TUD1k<-st_read("./Data/TUD_2012-2017_1000m.gpkg")
-# TUD1k<-st_join(TUD1k,ESI, left = FALSE)
-# TUD1k$PUD_YR_AVG<-TUD1k$PUD_YR_AVG*6
-
-```
 
 ```{r `maps tmap`, echo=FALSE}
 # Modifying the bounding box https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/
