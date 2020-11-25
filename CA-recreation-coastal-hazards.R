@@ -269,8 +269,9 @@ results$hres<-ifelse(results$hres==1, 1000,
                      ifelse(results$hres==2, 500, 250))
 
 write.csv(results,"lresults.csv",row.names = FALSE)
+st_write(results,"lresults.gpkg")
 
-unlink("./Data", recursive = TRUE) # Delete data directory
+#unlink("./Data", recursive = TRUE) # Delete data directory
 
 # ## SFEI SF Bay shoreline inventory 
 # # Note: Only captures locations in SF Bay Shoreline Inventory that overlay with NOAA ESI, which discards roughly 50% of data from the inventory
