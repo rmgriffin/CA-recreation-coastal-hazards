@@ -74,7 +74,7 @@ C$DC_YR<-rowSums(C[3:14])
 
 D<-st_as_sf(C, coords = c("lon_bin", "lat_bin"),crs = 4326, agr = "constant")
 
-st_write(D,"DC2019.gpkg")
+st_write(D,"./Data/DC2019.gpkg")
 
 # # Plotting Template
 # a<-ggplot() +
