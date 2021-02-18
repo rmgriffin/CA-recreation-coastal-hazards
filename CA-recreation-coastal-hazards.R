@@ -268,6 +268,59 @@ rm(file.f,file.t)
 results$hres<-ifelse(results$hres==1, 1000,
                      ifelse(results$hres==2, 500, 250))
 
+## Attaching cell data
+dc<-st_read("./Data/DC2019.gpkg")
+dc<-st_transform(dc,st_crs(results)) # reprojecting
+dc<-dc %>% dplyr::select(DC_YR,geom) # only annual sum
+
+results2<-st_join(results,dc)
+rm(dc)
+
+results2<-results2 %>% 
+  group_by(hres, id) %>% 
+  mutate(ud = sum(DC_YR)) %>% 
+  dplyr::select(-c(DC_YR,meanprec,meanat,meanSST)) %>% 
+  mutate(source = "DC") %>% 
+  unique()
+
+# Adjacent precipitation cell data
+Prec.buff8m<-st_buffer(results2,dist=12784) # Creating a (8 mile) buffered shapefile of hexagons 
+prec<-raster("./Data/Prism Precip/PRISM_ppt_stable_4kmM3_2019.tif")
+Prec.buff8m<-st_transform(Prec.buff8m,st_crs(prec))
+Prec.buff8m<-subset(Prec.buff8m, select = c(id,geometry,hres))
+system.time(Prec.buff8m$meanprec<-exact_extract(prec, Prec.buff8m, "mean")) # Extracting mean precip for each buffered polygon 
+Prec.buff8m$geometry<-NULL # Turns sf object into dataframe
+results2<-left_join(results2,Prec.buff8m,by = c("id","hres"))
+rm(Prec.buff8m,prec) # Removing unneeded vars
+
+# Adjacent air temperature cell data
+AT.buff8m<-st_buffer(results2,dist=12784) # Creating a (8 mile) buffered shapefile of hexagons
+at<-raster("./Data/Prism Mean Temp/PRISM_tmean_stable_4kmM3_2019.tif")
+AT.buff8m<-st_transform(AT.buff8m,st_crs(at))
+AT.buff8m<-subset(AT.buff8m, select = c(id,geometry,hres))
+system.time(AT.buff8m$meanat<-exact_extract(at, AT.buff8m, "mean")) # Extracting mean air temp for each buffered polygon 
+AT.buff8m$geometry<-NULL # Turns sf object into dataframe
+results2<-left_join(results2,AT.buff8m,by = c("id","hres"))
+rm(AT.buff8m,at) # Removing unneeded vars
+
+# Adjacent sea surface temperature cell data
+SST<-raster("./Data/Cell_GIOVANNI-g4.timeAvgMap.MODISA_L3m_SST_Monthly_4km_R2019_0_sst.20190101-20191231.124W_32N_117W_42N.tif")
+SST.buff<-st_buffer(results2,dist=15000) # Creating a (15km) buffered shapefile of hexagons
+SST.buff<-st_transform(SST.buff,st_crs(SST))
+SST.buff<-subset(SST.buff, select = c(id,geometry,hres))
+system.time(SST.buff$meanSST<-exact_extract(SST, SST.buff, "mean")) # Extracting mean sea surface temp for each buffered polygon
+SST.buff$geometry<-NULL # Turns sf object into dataframe
+results2<-left_join(results2,SST.buff,by = c("id","hres"))
+rm(SST.buff,SST) # Removing unneeded vars
+
+results<-rbind(results,results2)
+
+results %>% 
+  group_by(hres,source) %>% 
+  summarise(hres_sum = sum(ud, na.rm = TRUE))
+
+rm(results2)
+
 write.csv(results,"lresults.csv",row.names = FALSE)
 st_write(results,"lresults.gpkg")
 
