@@ -1,0 +1,19 @@
+# Stata code
+clear
+# http://repec.sowi.unibe.ch/stata/estout/
+# http://repec.org/bocode/e/estout/examples.html
+eststo clear
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="DC"&hres==250, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="PUD"&hres==250, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="TUD"&hres==250, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if hres==250, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="DC"&hres==500, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="PUD"&hres==500, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="TUD"&hres==500, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if hres==500, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="DC"&hres==1000, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="PUD"&hres==1000, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if source=="TUD"&hres==1000, robust
+eststo: nbreg ud rockyshore sandybeach marshes armored sumpop rdist bike_path boating bt_facil_t campground dsabldacss fee fishing parking pth_beach restrooms strs_beach watertrail baytrail wtlddist meanprec meanat meansst if hres==1000, robust
+esttab, compress label nonumbers mtitles("DC250" "PUD250" "TUD250" "Pool250" "DC500" "PUD500" "TUD500" "Pool500" "DC1000" "PUD1000" "TUD1000" "Pool1000" )
+esttab, compress label nonumbers mtitles("DC250" "PUD250" "TUD250" "Pool250" "DC500" "PUD500" "TUD500" "Pool500" "DC1000" "PUD1000" "TUD1000" "Pool1000" ) cells(_sigsign) nogap starlevels("+/-" 0.1 "++/--" 0.05 "+++/---" 0.01)
