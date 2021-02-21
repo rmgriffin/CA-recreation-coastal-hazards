@@ -267,6 +267,8 @@ results %>%
   group_by(hres,source) %>% 
   summarise(hres_sum = sum(ud, na.rm = TRUE))
 
+results$ud<-round(results$ud)
+
 rm(results2)
 
 ## Additional data processing
