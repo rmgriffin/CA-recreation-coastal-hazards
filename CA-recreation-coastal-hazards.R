@@ -325,7 +325,18 @@ results$Marshes<-results$x9a + results$x9b + results$x10a
 results$Armored<-results$x1b + results$x6b + results$x8b + results$x8c
 
 # County 
-
+County<-st_read("./Data/CA_Counties_TIGER2016.gpkg")
+County<-st_transform(County,st_crs(results))
+County<-County %>% dplyr::select(NAME)
+results2<-st_centroid(results) # Identifying county using centroid of observation polygon (issue for small fraction of polygons that cross county borders)
+results2<-st_join(results2,County)
+results2$geometry<-NULL # Turns sf object into dataframe
+results2<-results2 %>% 
+  dplyr::select(id,NAME,hres) %>% 
+  unique()
+sapply(results2, function(x) sum(is.na(x))) # Checking to see if there are any NAs 
+results<-left_join(results,results2,by = c("id","hres"))
+rm(results2,County)
 
 ## Write to disk
 results %>% 
