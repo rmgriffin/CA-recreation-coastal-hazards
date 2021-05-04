@@ -261,7 +261,41 @@ SST.buff$geometry<-NULL # Turns sf object into dataframe
 results2<-left_join(results2,SST.buff,by = c("id","hres"))
 rm(SST.buff,SST) # Removing unneeded vars
 
-results<-rbind(results,results2)
+# Adjacent chlorophyll a values, all formats (PUD, TUD, cell)
+resultsPUD<-results[which(results$source=="PUD"),]
+resultsTUD<-results[which(results$source=="TUD"),]
+rs<-list.files("./Data/Chlorophyll", full.names = TRUE) # List of all Chlorophyll a monthly rasters, 2005 - 2019
+rs.PUD<-rs[1:83] # Subset corresponding to 2005 - 2011 # Split up due to long processing time for dealing with 2005 - 2017 raster stack
+rs.TUD<-rs[84:156] # Subset corresponding to 2012 - 2017
+rs.cell<-rs[169:180] # Subset corresponding to 2019
+s.PUD<-stack(rs.PUD) # Raster stacks
+s.TUD<-stack(rs.TUD)
+s.cell<-stack(rs.cell)
+Ca.buff8m<-st_buffer(resultsPUD,dist=12784) # Creating a (8 mile) buffered shapefile of hexagons 
+Ca.buff8m<-st_transform(Ca.buff8m,crs=crs(s.PUD))
+Ca.buff8m<-subset(Ca.buff8m, select = c(id,geometry,hres))
+system.time(Ca.buff8m$meanPUD<-rowMeans(exact_extract(s.PUD, Ca.buff8m, "mean"))) # Extracting mean precip for each buffered polygon, 2005 - 2011 
+system.time(Ca.buff8m$meanTUD<-rowMeans(exact_extract(s.TUD, Ca.buff8m, "mean"))) # 2012 - 2017
+system.time(Ca.buff8m$meancell<-rowMeans(exact_extract(s.cell, Ca.buff8m, "mean"))) # 2019
+Ca.buff8m$meanPUD<-(Ca.buff8m$meanTUD+Ca.buff8m$meanPUD)/2 # PUD mean over 2005 - 2017 
+Ca.buff8m$geometry<-NULL # Turns sf object into dataframe
+resultsPUD<-Ca.buff8m %>% 
+  dplyr::select(id,meanPUD,hres) %>% 
+  left_join(resultsPUD,.,by = c("id","hres"))
+resultsTUD<-Ca.buff8m %>% 
+  dplyr::select(id,meanTUD,hres) %>% 
+  left_join(resultsTUD,.,by = c("id","hres"))
+results2<-Ca.buff8m %>% 
+  dplyr::select(id,meancell,hres) %>% 
+  left_join(results2,.,by = c("id","hres"))
+colnames(results2)[colnames(results2) == 'meancell'] <- 'ChA'
+colnames(resultsPUD)[colnames(resultsPUD) == 'meanPUD'] <- 'ChA'
+colnames(resultsTUD)[colnames(resultsTUD) == 'meanTUD'] <- 'ChA'
+rm(Ca.buff8m,s.cell,s.PUD,s.TUD,rs,rs.cell,rs.PUD,rs.TUD) # Removing unneeded vars
+
+results2<-results2 %>% relocate(geometry, .after = last_col()) # Fixing for row binding
+st_geometry(results2)<-"geometry" # Fixing for row binding
+results<-rbind(results2,resultsTUD,resultsPUD)
 
 results %>% 
   group_by(hres,source) %>% 
@@ -269,12 +303,13 @@ results %>%
 
 results$ud<-round(results$ud)
 
-rm(results2)
+rm(results2,resultsPUD,resultsTUD)
 
 ## Additional data processing
-results$ud[is.na(results$ud)]<-0 # Replacing NAs in cell data with zero. Comment out and let the next line drop if we want to drop them
+#results$ud[is.na(results$ud)]<-0 # Replacing NAs in cell data with zero. Comment out and use next line if we want to drop them
 #results<-results[complete.cases(results),] # Doesn't work with sf objects
 results<-results[!sf::st_is_empty(results), ] %>% na.omit() # https://stackoverflow.com/questions/52173746/return-complete-cases-of-sf-object-in-r drops a few observations where the precipitation and air temp rasters returned NAs due to inadequate coverage, results in different num obs for cell data, as 2019 coverage isn't as complete as the mean values derived from the longer time series relevant for the twitter and flickr data
+sapply(results, function(x) sum(is.na(x))) # Checking to see if there are any NAs
 # rescaling population to thousands and distances to km, to deal with model convergence issues
 results$sumpop<-results$sumpop/1000
 results$rdist<-results$rdist/1000
@@ -288,6 +323,9 @@ results$RockyShore<-results$x1a + results$x2a + results$x6a +results$x8a
 results$SandyBeach<-results$x3a + results$x3b + results$x4 + results$x5
 results$Marshes<-results$x9a + results$x9b + results$x10a
 results$Armored<-results$x1b + results$x6b + results$x8b + results$x8c
+
+# County 
+
 
 ## Write to disk
 results %>% 
