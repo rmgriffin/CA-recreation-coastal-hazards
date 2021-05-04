@@ -306,10 +306,11 @@ results$ud<-round(results$ud)
 rm(results2,resultsPUD,resultsTUD)
 
 ## Additional data processing
-#results$ud[is.na(results$ud)]<-0 # Replacing NAs in cell data with zero. Comment out and use next line if we want to drop them
+sapply(results, function(x) sum(is.na(x))) # Checking to see if there are any NAs
+results$ud[is.na(results$ud)]<-0 # Replacing NAs in cell data with zero. Comment out and use next line if we want to drop them
 #results<-results[complete.cases(results),] # Doesn't work with sf objects
 results<-results[!sf::st_is_empty(results), ] %>% na.omit() # https://stackoverflow.com/questions/52173746/return-complete-cases-of-sf-object-in-r drops a few observations where the precipitation and air temp rasters returned NAs due to inadequate coverage, results in different num obs for cell data, as 2019 coverage isn't as complete as the mean values derived from the longer time series relevant for the twitter and flickr data
-sapply(results, function(x) sum(is.na(x))) # Checking to see if there are any NAs
+sapply(results, function(x) sum(is.na(x))) # Rechecking to see if there are any NAs
 # rescaling population to thousands and distances to km, to deal with model convergence issues
 results$sumpop<-results$sumpop/1000
 results$rdist<-results$rdist/1000
