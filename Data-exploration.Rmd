@@ -40,13 +40,10 @@ Zero-inflated doesn't refer to lots of zeros in the outcome variable, but an out
 Let's first explore some summary statistics. 
 
 ```{r data, include=FALSE}
+# source("./2019Celldata-processing.R") # Produces "DC2019.gpkg" - the cell phone data needed for the next line
 # source("./CA-recreation-coastal-hazards.R") # Produces "lresults.csv" in next line, loads data needed for all scripts
-df<-read_csv("lresults.csv") # Results of "CA-recreation-coastal-hazards.R"
-df<-df[complete.cases(df),] # drops a few observations where the precipitation and air temp rasters returned NAs due to inadequate coverage
-# rescaling population to thousands and distances to km, to deal with model convergence issues
-df$sumpop<-df$sumpop/1000
-df$rdist<-df$rdist/1000
-df$wtlddist<-df$wtlddist/1000
+#df<-read_csv("lresults.csv") # Results of "CA-recreation-coastal-hazards.R"
+df<-st_read("lresults.gpkg")
 ```
 
 <style>
@@ -77,24 +74,31 @@ t3<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
 knitr::kables(list(t1,t2,t3)) %>%
   kable_styling(position = "center", bootstrap_options = "none")
 
+c1<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==250&df$source=="DC",],fmt="%.0f", title = 'Cellular Resolution 250m')
+c2<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==500&df$source=="DC",],fmt="%.0f", title = 'Cellular Resolution 500m')
+c3<-datasummary((ud == 0) + (ud > 0) ~ (N=1) + Percent(),
+            data = df[df$hres==1000&df$source=="DC",],fmt="%.0f", title = 'Cellular Resolution 1000m')
+
+knitr::kables(list(c1,c2,c3)) %>%
+  kable_styling(position = "center", bootstrap_options = "none")
+
 rm(f1,f2,f3,t1,t2,t3,summaryname)
 
 ```
 
-The data is characterized by a significant number of zeros, that increase as a percentage of the data at higher resolutions. Twitter data seems to produce more zeros than flickr data at all resolutions. 
+The data is characterized by a significant number of zeros, that increase as a percentage of the data at higher resolutions. Twitter data seems to produce more zeros than flickr or cell data at all resolutions. 
 
 ```{r continuous, echo=FALSE}
-datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean air temp (C)`=meanat) + (`Mean sea surface temp (C)`=meanSST) ~ Mean + Median + SD + Histogram, data = df[df$hres==250,],fmt="%.2f", title = 'Continuous Predictors 250m')
+datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean annual air temp (C)`=meanat) + (`Mean annual sea surface temp (C)`=meanSST) + (`Mean annual chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==250,],fmt="%.2f", title = 'Continuous Predictors 250m')
 
-datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean air temp (C)`=meanat) + (`Mean sea surface temp (C)`=meanSST) ~ Mean + Median + SD + Histogram, data = df[df$hres==1000,],fmt="%.2f", title = 'Continuous Predictors 1000m')
+datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean annual air temp (C)`=meanat) + (`Mean annual sea surface temp (C)`=meanSST) + (`Mean annual chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==1000,],fmt="%.2f", title = 'Continuous Predictors 1000m')
 ```
 
 Summary statistics are shown for all potential continuous predictors. There is little variation across resolutions, but note that the higher resolution observation picks up finer scale variation in the 'distance to X' variables.
 
 ```{r discrete, echo=FALSE}
-# Filtering area of influence of amenities represented in Yourcoast database
-df<-mutate_at(df, vars(BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH), list(~ ifelse(YCdist>1000, 0, .)))
-
 d1<-datasummary((`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'Binary Predictors 250m')
 d2<-datasummary((`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'Binary Predictors 1000m')
 
@@ -109,10 +113,11 @@ knitr::kables(list(d3,d4)) %>%
 
 ```
 
-These values represent proportions of observations intersecting with ESI types, or within 1km of amenities in the [California Coastal Commission Yourcoast database](https://www.coastal.ca.gov/YourCoast/#/map). Amenities do not change markedly between resolutions as they are based on intersection with a buffer (within 1km of Yourcoast geotagged location). Most notable output from the summary of ESI lengths is that some types (sheltered tidal flats, marshes, etc.) tend to wind considerably leading to longer lateral length than other types. Also note that, when more than one type is present, all types are assigned the full length of the ESI segment, leading to aggregate ESI lengths that tend to exceed the resolution size. This effect is not just due to winding shorelines.  
+These values represent the mean observed distance of an ESI type across all observations. Most notable output from the summary of ESI lengths is that some types (sheltered tidal flats, marshes, etc.) tend to wind considerably leading to longer lateral length than other types. Also note that, when more than one type is present, all types are assigned the full length of the ESI segment, leading to aggregate ESI lengths that tend to exceed the resolution size. This effect is not just due to winding shorelines.  
 
 ```{r correlationESI, echo=FALSE, fig.align="center"}
-cormat<-round(cor(df[,3:18]),2)
+df.nosf<-df %>% st_drop_geometry()
+cormat<-round(cor(df.nosf[,3:18]),2)
 rownames(cormat)<-c("Exposed rocky shore (1a)","Exposed solid man-made structures (1b)","Exposed wave-cut platforms in bedrock (2a)","Fine-to-medium grain sand beaches (3a)","Scarps and steep slopes in sand (3b)","Coarse-grained sand beaches (4)","Mixed sand and gravel beaches (5)","Gravel beaches (6a)","Riprap (6b)","Exposed tidal flats (7)","Sheltered rocky shores (8a)","Sheltered man-made structures (8b)","Sheltered riprap (8c)","Sheltered tidal flat (9a)","Vegetated low riverine banks (9b)","Salt and brackish marshes (10a)")
 colnames(cormat)<-c("1a","1b","2a","3a","3b","4","5","6a","6b","7","8a","8b","8c","9a","9b","10a")
 corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = "RdBu"),tl.col = "black")
@@ -121,8 +126,8 @@ corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = 
 Correlogram of ESI types. Not much correlation, though tidal flats and marshes are often observed together.
 
 ```{r correlationYC, echo=FALSE, fig.align="center"}
-cormat<- df[df$hres==1000,] %>%
-  dplyr::select(sumpop,rdist,BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH,WaterTrail,BayTrail,wtlddist,meanprec,meanat,meanSST)
+cormat<-df.nosf[df.nosf$hres==1000,] %>%
+  dplyr::select(sumpop,rdist,BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH,WaterTrail,BayTrail,wtlddist,meanprec,meanat,meanSST,ChA,RockyShore,Armored,Marshes,SandyBeach)
 cormat<-round(cor(cormat),2)
 # rownames(cormat)<-c("Exposed rocky shore (1a)","Exposed solid man-made structures (1b)","Exposed wave-cut platforms in bedrock (2a)","Fine-to-medium grain sand beaches (3a)","Scarps and steep slopes in sand (3b)","Coarse-grained sand beaches (4)","Mixed sand and gravel beaches (5)","Gravel beaches (6a)","Riprap (6b)","Exposed tidal flats (7)","Sheltered rocky shores (8a)","Sheltered man-made structures (8b)","Sheltered riprap (8c)","Sheltered tidal flat (9a)","Vegetated low riverine banks (9b)","Salt and brackish marshes (10a)")
 # colnames(cormat)<-c("1a","1b","2a","3a","3b","4","5","6a","6b","7","8a","8b","8c","9a","9b","10a")
@@ -131,15 +136,9 @@ corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = 
 
 ```
 
-Correlogram of other predictors. Relationships are stable across resolutions; the above plots correlations at 1000m resolution.
+Correlogram of other predictors. Relationships are stable across resolutions; the above plots correlations at 1000m resolution. Strong correlations (>|0.5|) are mainly observed between the atmospheric and water characteristics. Air temperature, precipitation, and water temperature in particular.
 
 ```{r `ESI crosswalk`, echo=FALSE}
-
-df$RockyShore<-df$x1a + df$x2a + df$x6a +df$x8a
-df$SandyBeach<-df$x3a + df$x3b + df$x4 + df$x5
-df$Marshes<-df$x9a + df$x9b + df$x10a
-df$Armored<-df$x1b + df$x6b + df$x8b + df$x8c
-
 d1<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'ESI Length (m) @ 1000m')
 d2<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==500,],fmt="%.2f", title = 'ESI Length (m) @ 500m')
 d3<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'ESI Length (m) @ 250m')
@@ -154,9 +153,10 @@ A proposed crosswalk of ESI types to fewer shoreline classes: Rocky shore {1A, 2
 df$ihsud<-log(df$ud + sqrt(df$ud^2 + 1)) # Inverse hyperbolic sine transformation of user days
 df$lnud<-log(df$ud+1) # Natural log (+1 for zeros) transformation of user days
 
-## Do not transform count data DOI: 10.1111/j.2041-210X.2010.00021.x
+## Do not transform count data DOI: https://doi.org/10.1111/j.2041-210X.2010.00021.x
+## For testing the significance of regression coefficients, go ahead and log‐transform count data https://doi.org/10.1111/2041-210X.12386
 
-regs<-function(rs,tipe,dv){ # tipe is either "PUD" or "TUD" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
+regs<-function(rs,tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
   models <- list()
   models.rob<-list()
   models[['Poisson']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], family = poisson)
@@ -188,12 +188,13 @@ TUD1000<-regs(1000,"TUD","ud")
 # plot(TUD250[[1]]$`Negative Binomial`, which=2, col=c("red"))
 
 # Breusch-Pagan test for heteroskedasticity http://math.furman.edu/~dcs/courses/math47/R/library/lmtest/html/bptest.html
-map(PUD1000[[1]],bptest)
-map(PUD500[[1]],bptest)
-map(PUD250[[1]],bptest)
-map(TUD1000[[1]],bptest)
-map(TUD500[[1]],bptest)
-map(TUD250[[1]],bptest)
+# Don't bother with this https://twitter.com/jmwooldridge/status/1388249554399731712
+# map(PUD1000[[1]],bptest)
+# map(PUD500[[1]],bptest)
+# map(PUD250[[1]],bptest)
+# map(TUD1000[[1]],bptest)
+# map(TUD500[[1]],bptest)
+# map(TUD250[[1]],bptest)
 ```
 
 We have estimated models that treat this as a one (Poisson, Quasi-Poisson, Negative Binomial) or two-stage process (ZINB and hurdle).
@@ -227,96 +228,195 @@ From a theoretical perspective shoreline visitation choice is not typically trea
 # No approach for robust standard errors in R for ZINB estimated by glmmTMB, if needed.
 ```
 
+```{r `Poisson version, including cell`, echo=FALSE}
+
+Pois.reg<-function(tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
+  models <- list()
+  models.rob<-list()
+  models[['p250']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==250,], family = poisson)
+  models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
+  
+  models[['p500']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==500,], family = poisson)
+  models.rob[['p500']]<-coeftest(models[['p500']], vcov = sandwich)
+  
+  models[['p1000']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==1000,], family = poisson)
+  models.rob[['p1000']]<-coeftest(models[['p1000']], vcov = sandwich)
+
+  return(list(models,models.rob))
+}
+
+PUD.p<-Pois.reg("PUD","ud")
+PUD.p[[2]]
+TUD.p<-Pois.reg("TUD","ud")
+TUD.p[[2]]
+DC.p<-Pois.reg("DC","ud")
+DC.p[[2]]
+
+a<-c(PUD.p[[2]],TUD.p[[2]],DC.p[[2]])
+names(a)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
+
+msummary(a, stars = TRUE)
+```
+
+The cellular data has convergence issues with most of the regression formats, so we re-estimate models using the Poisson regression
+
+```{r `OLS version, including cell`, echo=FALSE}
+OLS.reg<-function(tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
+  models <- list()
+  models.rob<-list()
+  models[['p250']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==250,])
+  models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
+  
+  models[['p500']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==500,])
+  models.rob[['p500']]<-coeftest(models[['p500']], vcov = sandwich)
+  
+  models[['p1000']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==1000,])
+  models.rob[['p1000']]<-coeftest(models[['p1000']], vcov = sandwich)
+
+  return(list(models,models.rob))
+}
+
+PUD.p<-OLS.reg("PUD","ud")
+PUD.p[[2]]
+TUD.p<-OLS.reg("TUD","ud")
+TUD.p[[2]]
+DC.p<-OLS.reg("DC","ud")
+DC.p[[2]]
+
+a<-c(PUD.p[[2]],TUD.p[[2]],DC.p[[2]])
+names(a)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
+
+msummary(a, stars = TRUE)
+
+```
+
+```{r `Negative binomial version, including cell`, echo=FALSE}
+# NB.reg<-function(tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
+#   models <- list()
+#   models.rob<-list()
+# 
+#   models[['p250']]<-MASS::glm.nb(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==250,])
+#   models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
+#   
+#   models[['p500']]<-MASS::glm.nb(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==500,])
+#   models.rob[['p500']]<-coeftest(models[['p500']], vcov = sandwich)
+#   
+#   models[['p1000']]<-MASS::glm.nb(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==1000,])
+#   models.rob[['p1000']]<-coeftest(models[['p1000']], vcov = sandwich)
+# 
+#   return(list(models,models.rob))
+# }
+# 
+# PUD.nb<-NB.reg("PUD","ud")
+# PUD.nb[[2]]
+# TUD.nb<-NB.reg("TUD","ud")
+# TUD.nb[[2]]
+# DC.nb<-NB.reg("DC","ud")
+# DC.nb[[2]]
+# 
+# e<-c(coef(a[["DC250m"]]))
+# 
+# MASS::glm.nb(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = "ud"), data = df[df$source=="DC"&df$hres==250,], start = e, control=glm.control(trace=20,maxit=100))
+# 
+# 
+#   models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
+# 
+# a<-c(PUD.p[[2]],TUD.p[[2]],DC.p[[2]])
+# names(a)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
+# 
+# msummary(a, stars = TRUE)
+```
+
 ```{r `Rootograms`, echo=FALSE}
-root<-function(x){ # x is a specific model in a list of outputs, i.e. PUD250[[1]]$Poisson 
-  name<-deparse(substitute(x)) %>% # Transforming variable name to string 
-  str_split("\\[\\[",simplify = TRUE) # Splitting string at left brackets
-  name1<-name[1,1] # Extracting left string after split
-  name2<-name[1,2] 
-  name2<-str_split(name2,"\\$",simplify = TRUE)
-  name2<-name2[1,2]
-  name2<-gsub("`","",name2)
-  
-  bp<-cbind(df[df$source==str_sub(name1,1,3)&df$hres==noquote(str_sub(name1,4,7)),"ud"],(as.vector(predict(x,type = "response")))) # Uses string components to subset appropriate "source" and "hres" values
-  colnames(bp)<-c("obs","pred")
-  
-  bp<-pivot_longer(bp, cols = c("obs","pred"), names_to = "status", values_to = "ud")
-  bp$status<-as.factor(bp$status)
-  bp$ud<-round(bp$ud)
-  
-  bp<-ggplot(bp) + 
-  stat_bin(aes(x=ud, fill=status), position = position_dodge(preserve = "single"), breaks = seq(0, 25, by = 1)) +
-  scale_x_continuous(limits = c(0,25)) +
-  theme_minimal() +
-  ggtitle(name2)
-  
-  return(bp)
-}  
-
-# Rootograms for various plots (can't lapply/map this https://stackoverflow.com/questions/64812690/use-object-name-in-function-with-map-lapply)
-gg1000P<-list()
-gg1000P[[1]]<-root(PUD1000[[1]]$Poisson)
-gg1000P[[2]]<-root(PUD1000[[1]]$`Quasi-Poisson`)
-gg1000P[[3]]<-root(PUD1000[[1]]$`Negative Binomial`)
-gg1000P[[4]]<-root(PUD1000[[1]]$Hurdle)
-gg1000P[[5]]<-root(PUD1000[[1]]$ZINB)
-
-gg500P<-list()
-gg500P[[1]]<-root(PUD500[[1]]$Poisson)
-gg500P[[2]]<-root(PUD500[[1]]$`Quasi-Poisson`)
-gg500P[[3]]<-root(PUD500[[1]]$`Negative Binomial`)
-gg500P[[4]]<-root(PUD500[[1]]$Hurdle)
-gg500P[[5]]<-root(PUD500[[1]]$ZINB)
-
-gg250P<-list()
-gg250P[[1]]<-root(PUD250[[1]]$Poisson)
-gg250P[[2]]<-root(PUD250[[1]]$`Quasi-Poisson`)
-gg250P[[3]]<-root(PUD250[[1]]$`Negative Binomial`)
-gg250P[[4]]<-root(PUD250[[1]]$Hurdle)
-gg250P[[5]]<-root(PUD250[[1]]$ZINB)
-
-Proot<-wrap_elements(grid::textGrob('1000m')) + wrap_elements(grid::textGrob('500m')) + wrap_elements(grid::textGrob('250m')) +
-  gg1000P[[1]] + gg500P[[1]] + gg250P[[1]] +
-  gg1000P[[2]] + gg500P[[2]] + gg250P[[2]] +
-  gg1000P[[3]] + gg500P[[3]] + gg250P[[3]] +
-  gg1000P[[4]] + gg500P[[4]] + gg250P[[4]] +
-  gg1000P[[5]] + gg500P[[5]] + gg250P[[5]] +
-  plot_layout(ncol = 3, guides = 'collect') +
-  plot_annotation(title = "Models for Flickr User Days")
-
-gg1000T<-list()
-gg1000T[[1]]<-root(TUD1000[[1]]$Poisson)
-gg1000T[[2]]<-root(TUD1000[[1]]$`Quasi-Poisson`)
-gg1000T[[3]]<-root(TUD1000[[1]]$`Negative Binomial`)
-gg1000T[[4]]<-root(TUD1000[[1]]$Hurdle)
-gg1000T[[5]]<-root(TUD1000[[1]]$ZINB)
-
-gg500T<-list()
-gg500T[[1]]<-root(TUD500[[1]]$Poisson)
-gg500T[[2]]<-root(TUD500[[1]]$`Quasi-Poisson`)
-gg500T[[3]]<-root(TUD500[[1]]$`Negative Binomial`)
-gg500T[[4]]<-root(TUD500[[1]]$Hurdle)
-gg500T[[5]]<-root(TUD500[[1]]$ZINB)
-
-gg250T<-list()
-gg250T[[1]]<-root(TUD250[[1]]$Poisson)
-gg250T[[2]]<-root(TUD250[[1]]$`Quasi-Poisson`)
-gg250T[[3]]<-root(TUD250[[1]]$`Negative Binomial`)
-gg250T[[4]]<-root(TUD250[[1]]$Hurdle)
-gg250T[[5]]<-root(TUD250[[1]]$ZINB)
-
-Troot<-wrap_elements(grid::textGrob('1000m')) + wrap_elements(grid::textGrob('500m')) + wrap_elements(grid::textGrob('250m')) +
-  gg1000T[[1]] + gg500T[[1]] + gg250T[[1]] +
-  gg1000T[[2]] + gg500T[[2]] + gg250T[[2]] +
-  gg1000T[[3]] + gg500T[[3]] + gg250T[[3]] +
-  gg1000T[[4]] + gg500T[[4]] + gg250T[[4]] +
-  gg1000T[[5]] + gg500T[[5]] + gg250T[[5]] +
-  plot_layout(ncol = 3, guides = 'collect') +
-  plot_annotation(title = "Models for Twitter User Days")
-
-rm(gg1000P,gg1000T,gg500P,gg500T,gg250P,gg250T)
-Proot
-Troot
+# root<-function(x){ # x is a specific model in a list of outputs, i.e. PUD250[[1]]$Poisson 
+#   name<-deparse(substitute(x)) %>% # Transforming variable name to string 
+#   str_split("\\[\\[",simplify = TRUE) # Splitting string at left brackets
+#   name1<-name[1,1] # Extracting left string after split
+#   name2<-name[1,2] 
+#   name2<-str_split(name2,"\\$",simplify = TRUE)
+#   name2<-name2[1,2]
+#   name2<-gsub("`","",name2)
+#   
+#   bp<-cbind(df[df$source==str_sub(name1,1,3)&df$hres==noquote(str_sub(name1,4,7)),"ud"],(as.vector(predict(x,type = "response")))) # Uses string components to subset appropriate "source" and "hres" values
+#   colnames(bp)<-c("obs","pred")
+#   
+#   bp<-pivot_longer(bp, cols = c("obs","pred"), names_to = "status", values_to = "ud")
+#   bp$status<-as.factor(bp$status)
+#   bp$ud<-round(bp$ud)
+#   
+#   bp<-ggplot(bp) + 
+#   stat_bin(aes(x=ud, fill=status), position = position_dodge(preserve = "single"), breaks = seq(0, 25, by = 1)) +
+#   scale_x_continuous(limits = c(0,25)) +
+#   theme_minimal() +
+#   ggtitle(name2)
+#   
+#   return(bp)
+# }  
+# 
+# # Rootograms for various plots (can't lapply/map this https://stackoverflow.com/questions/64812690/use-object-name-in-function-with-map-lapply)
+# gg1000P<-list()
+# gg1000P[[1]]<-root(PUD1000[[1]]$Poisson)
+# gg1000P[[2]]<-root(PUD1000[[1]]$`Quasi-Poisson`)
+# gg1000P[[3]]<-root(PUD1000[[1]]$`Negative Binomial`)
+# gg1000P[[4]]<-root(PUD1000[[1]]$Hurdle)
+# gg1000P[[5]]<-root(PUD1000[[1]]$ZINB)
+# 
+# gg500P<-list()
+# gg500P[[1]]<-root(PUD500[[1]]$Poisson)
+# gg500P[[2]]<-root(PUD500[[1]]$`Quasi-Poisson`)
+# gg500P[[3]]<-root(PUD500[[1]]$`Negative Binomial`)
+# gg500P[[4]]<-root(PUD500[[1]]$Hurdle)
+# gg500P[[5]]<-root(PUD500[[1]]$ZINB)
+# 
+# gg250P<-list()
+# gg250P[[1]]<-root(PUD250[[1]]$Poisson)
+# gg250P[[2]]<-root(PUD250[[1]]$`Quasi-Poisson`)
+# gg250P[[3]]<-root(PUD250[[1]]$`Negative Binomial`)
+# gg250P[[4]]<-root(PUD250[[1]]$Hurdle)
+# gg250P[[5]]<-root(PUD250[[1]]$ZINB)
+# 
+# Proot<-wrap_elements(grid::textGrob('1000m')) + wrap_elements(grid::textGrob('500m')) + wrap_elements(grid::textGrob('250m')) +
+#   gg1000P[[1]] + gg500P[[1]] + gg250P[[1]] +
+#   gg1000P[[2]] + gg500P[[2]] + gg250P[[2]] +
+#   gg1000P[[3]] + gg500P[[3]] + gg250P[[3]] +
+#   gg1000P[[4]] + gg500P[[4]] + gg250P[[4]] +
+#   gg1000P[[5]] + gg500P[[5]] + gg250P[[5]] +
+#   plot_layout(ncol = 3, guides = 'collect') +
+#   plot_annotation(title = "Models for Flickr User Days")
+# 
+# gg1000T<-list()
+# gg1000T[[1]]<-root(TUD1000[[1]]$Poisson)
+# gg1000T[[2]]<-root(TUD1000[[1]]$`Quasi-Poisson`)
+# gg1000T[[3]]<-root(TUD1000[[1]]$`Negative Binomial`)
+# gg1000T[[4]]<-root(TUD1000[[1]]$Hurdle)
+# gg1000T[[5]]<-root(TUD1000[[1]]$ZINB)
+# 
+# gg500T<-list()
+# gg500T[[1]]<-root(TUD500[[1]]$Poisson)
+# gg500T[[2]]<-root(TUD500[[1]]$`Quasi-Poisson`)
+# gg500T[[3]]<-root(TUD500[[1]]$`Negative Binomial`)
+# gg500T[[4]]<-root(TUD500[[1]]$Hurdle)
+# gg500T[[5]]<-root(TUD500[[1]]$ZINB)
+# 
+# gg250T<-list()
+# gg250T[[1]]<-root(TUD250[[1]]$Poisson)
+# gg250T[[2]]<-root(TUD250[[1]]$`Quasi-Poisson`)
+# gg250T[[3]]<-root(TUD250[[1]]$`Negative Binomial`)
+# gg250T[[4]]<-root(TUD250[[1]]$Hurdle)
+# gg250T[[5]]<-root(TUD250[[1]]$ZINB)
+# 
+# Troot<-wrap_elements(grid::textGrob('1000m')) + wrap_elements(grid::textGrob('500m')) + wrap_elements(grid::textGrob('250m')) +
+#   gg1000T[[1]] + gg500T[[1]] + gg250T[[1]] +
+#   gg1000T[[2]] + gg500T[[2]] + gg250T[[2]] +
+#   gg1000T[[3]] + gg500T[[3]] + gg250T[[3]] +
+#   gg1000T[[4]] + gg500T[[4]] + gg250T[[4]] +
+#   gg1000T[[5]] + gg500T[[5]] + gg250T[[5]] +
+#   plot_layout(ncol = 3, guides = 'collect') +
+#   plot_annotation(title = "Models for Twitter User Days")
+# 
+# rm(gg1000P,gg1000T,gg500P,gg500T,gg250P,gg250T)
+# Proot
+# Troot
 ```
 
 Rootograms are a useful way to compare model selection between these two, as they assess [overdispersion](https://www.theanalysisfactor.com/poisson-or-negative-binomial-using-count-model-diagnostics-to-select-a-model/), a key selection criteria between the models. Unfortunately, there is no ready package to summarize the results we have here, so we resort to side-by-side count plots.
@@ -332,23 +432,23 @@ Rootograms are a useful way to compare model selection between these two, as the
 
 ```{r, `Model selection` echo=FALSE}
 # Extract IC and log-likelihood values, make into a table
-AICS<-data.frame(c("Poisson","Quasi-Poisson","Negative Binomial","Hurdle","ZINB"))
-colnames(AICS)<-c("model")
-AICS$PUD1000<-map(PUD1000[[1]],AIC)
-AICS$PUD500<-map(PUD500[[1]],AIC)
-AICS$PUD250<-map(PUD250[[1]],AIC)
-AICS$TUD1000<-map(TUD1000[[1]],AIC)
-AICS$TUD500<-map(TUD500[[1]],AIC)
-AICS$TUD250<-map(TUD250[[1]],AIC)
-
-LL<-data.frame(c("Poisson","Quasi-Poisson","Negative Binomial","Hurdle","ZINB"))
-colnames(LL)<-c("model")
-LL$PUD1000<-map(PUD1000[[1]],logLik)
-LL$PUD500<-map(PUD500[[1]],logLik)
-LL$PUD250<-map(PUD250[[1]],logLik)
-LL$TUD1000<-map(TUD1000[[1]],logLik)
-LL$TUD500<-map(TUD500[[1]],logLik)
-LL$TUD250<-map(TUD250[[1]],logLik)
+# AICS<-data.frame(c("Poisson","Quasi-Poisson","Negative Binomial","Hurdle","ZINB"))
+# colnames(AICS)<-c("model")
+# AICS$PUD1000<-map(PUD1000[[1]],AIC)
+# AICS$PUD500<-map(PUD500[[1]],AIC)
+# AICS$PUD250<-map(PUD250[[1]],AIC)
+# AICS$TUD1000<-map(TUD1000[[1]],AIC)
+# AICS$TUD500<-map(TUD500[[1]],AIC)
+# AICS$TUD250<-map(TUD250[[1]],AIC)
+# 
+# LL<-data.frame(c("Poisson","Quasi-Poisson","Negative Binomial","Hurdle","ZINB"))
+# colnames(LL)<-c("model")
+# LL$PUD1000<-map(PUD1000[[1]],logLik)
+# LL$PUD500<-map(PUD500[[1]],logLik)
+# LL$PUD250<-map(PUD250[[1]],logLik)
+# LL$TUD1000<-map(TUD1000[[1]],logLik)
+# LL$TUD500<-map(TUD500[[1]],logLik)
+# LL$TUD250<-map(TUD250[[1]],logLik)
 ```
 
 ##Draft figures for paper
@@ -374,7 +474,6 @@ nP1000<-poly2nb(PUD1km,queen = FALSE)
 lnP1000<-nb2listw(nP1000)
 gMP1000<-moran.test(PUD1km$PUD_YR_AVG, lnP1000) # MI stat 7.034348e-01, p-value < 2.2e-16
 ME(ud ~ RockyShore + SandyBeach + Marshes + Armored + sumpop + rdist + BIKE_PATH + BOATING + BT_FACIL_T + CAMPGROUND + DSABLDACSS + FEE + FISHING + PARKING + PTH_BEACH + RESTROOMS + STRS_BEACH + WaterTrail + BayTrail + wtlddist + meanprec + meanat + meanSST, data = df[df$source=="PUD"&df$hres==1000,], family = "poisson", listw = lnP1000)
-
 
 # 
 # nP250<-poly2nb(PUD250m,queen = FALSE)
