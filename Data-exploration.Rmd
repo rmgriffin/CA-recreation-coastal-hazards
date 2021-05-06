@@ -11,7 +11,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -150,36 +150,36 @@ knitr::kables(list(d1,d2,d3)) %>%
 A proposed crosswalk of ESI types to fewer shoreline classes: Rocky shore {1A, 2A, 6A, 8A}, Sandy beach {3A, 3B, 4, 5}, Marshes {9A, 9B, 10A}, Armored shore {1B, 6B, 8B, 8C}. 
 
 ```{r `Dep Var regressions`, echo=FALSE}
-df$ihsud<-log(df$ud + sqrt(df$ud^2 + 1)) # Inverse hyperbolic sine transformation of user days
-df$lnud<-log(df$ud+1) # Natural log (+1 for zeros) transformation of user days
-
-## Do not transform count data DOI: https://doi.org/10.1111/j.2041-210X.2010.00021.x
-## For testing the significance of regression coefficients, go ahead and log‐transform count data https://doi.org/10.1111/2041-210X.12386
-
-regs<-function(rs,tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
-  models <- list()
-  models.rob<-list()
-  models[['Poisson']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], family = poisson)
-  models.rob[['Poisson']]<-coeftest(models[['Poisson']], vcov = sandwich)
-  models[['Quasi-Poisson']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], family = quasipoisson)
-  models.rob[['Quasi-Poisson']]<-coeftest(models[['Quasi-Poisson']], vcov = sandwich)
-  models[['Negative Binomial']]<-MASS::glm.nb(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,])
-  models.rob[['Negative Binomial']]<-coeftest(models[['Negative Binomial']], vcov = sandwich)
-  models[['Hurdle']]<-hurdle(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], dist = "negbin")
-  models.rob[['Hurdle']]<-coeftest(models[['Hurdle']], vcov = sandwich)
-  models[['ZINB']]<-zeroinfl(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], dist = "negbin")
-  models.rob[['ZINB']]<-coeftest(models[['ZINB']], vcov = sandwich)
-
-  return(list(models,models.rob))
-}
-
-PUD250<-regs(250,"PUD","ud")
-PUD500<-regs(500,"PUD","ud")
-PUD1000<-regs(1000,"PUD","ud")
-
-TUD250<-regs(250,"TUD","ud")
-TUD500<-regs(500,"TUD","ud")
-TUD1000<-regs(1000,"TUD","ud")
+# df$ihsud<-log(df$ud + sqrt(df$ud^2 + 1)) # Inverse hyperbolic sine transformation of user days
+# df$lnud<-log(df$ud+1) # Natural log (+1 for zeros) transformation of user days
+# 
+# ## Do not transform count data DOI: https://doi.org/10.1111/j.2041-210X.2010.00021.x
+# ## For testing the significance of regression coefficients, go ahead and log‐transform count data https://doi.org/10.1111/2041-210X.12386
+# 
+# regs<-function(rs,tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
+#   models <- list()
+#   models.rob<-list()
+#   models[['Poisson']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], family = poisson)
+#   models.rob[['Poisson']]<-coeftest(models[['Poisson']], vcov = sandwich)
+#   models[['Quasi-Poisson']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], family = quasipoisson)
+#   models.rob[['Quasi-Poisson']]<-coeftest(models[['Quasi-Poisson']], vcov = sandwich)
+#   models[['Negative Binomial']]<-MASS::glm.nb(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,])
+#   models.rob[['Negative Binomial']]<-coeftest(models[['Negative Binomial']], vcov = sandwich)
+#   models[['Hurdle']]<-hurdle(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], dist = "negbin")
+#   models.rob[['Hurdle']]<-coeftest(models[['Hurdle']], vcov = sandwich)
+#   models[['ZINB']]<-zeroinfl(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","wtlddist","meanprec","meanat","meanSST"),response = dv), data = df[df$source==tipe&df$hres==rs,], dist = "negbin")
+#   models.rob[['ZINB']]<-coeftest(models[['ZINB']], vcov = sandwich)
+# 
+#   return(list(models,models.rob))
+# }
+# 
+# PUD250<-regs(250,"PUD","ud")
+# PUD500<-regs(500,"PUD","ud")
+# PUD1000<-regs(1000,"PUD","ud")
+# 
+# TUD250<-regs(250,"TUD","ud")
+# TUD500<-regs(500,"TUD","ud")
+# TUD1000<-regs(1000,"TUD","ud")
 
 # plot(PUD250[[1]]$Poisson, which=2, col=c("red")) # Q-Q plots
 # plot(PUD250[[1]]$`Negative Binomial`, which=2, col=c("red"))
@@ -229,17 +229,18 @@ From a theoretical perspective shoreline visitation choice is not typically trea
 ```
 
 ```{r `Poisson version, including cell`, echo=FALSE}
+df$meanat2<-df$meanat^2
 
 Pois.reg<-function(tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
   models <- list()
   models.rob<-list()
-  models[['p250']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==250,], family = poisson)
+  models[['p250']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==250,], family = poisson)
   models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
   
-  models[['p500']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==500,], family = poisson)
+  models[['p500']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==500,], family = poisson)
   models.rob[['p500']]<-coeftest(models[['p500']], vcov = sandwich)
   
-  models[['p1000']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","BOATING","BT_FACIL_T","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==1000,], family = poisson)
+  models[['p1000']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==1000,], family = poisson)
   models.rob[['p1000']]<-coeftest(models[['p1000']], vcov = sandwich)
 
   return(list(models,models.rob))
@@ -256,6 +257,7 @@ a<-c(PUD.p[[2]],TUD.p[[2]],DC.p[[2]])
 names(a)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
 
 msummary(a, stars = TRUE)
+rm(a)
 ```
 
 The cellular data has convergence issues with most of the regression formats, so we re-estimate models using the Poisson regression
@@ -264,30 +266,85 @@ The cellular data has convergence issues with most of the regression formats, so
 OLS.reg<-function(tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
   models <- list()
   models.rob<-list()
-  models[['p250']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==250,])
+  models[['p250']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==250,])
   models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
   
-  models[['p500']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==500,])
+  models[['p500']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==500,])
   models.rob[['p500']]<-coeftest(models[['p500']], vcov = sandwich)
   
-  models[['p1000']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","FISHING","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat"),response = dv), data = df[df$source==tipe&df$hres==1000,])
+  models[['p1000']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==1000,])
   models.rob[['p1000']]<-coeftest(models[['p1000']], vcov = sandwich)
 
   return(list(models,models.rob))
 }
 
-PUD.p<-OLS.reg("PUD","ud")
-PUD.p[[2]]
-TUD.p<-OLS.reg("TUD","ud")
-TUD.p[[2]]
-DC.p<-OLS.reg("DC","ud")
-DC.p[[2]]
+PUD.o<-OLS.reg("PUD","ud")
+PUD.o[[2]]
+TUD.o<-OLS.reg("TUD","ud")
+TUD.o[[2]]
+DC.o<-OLS.reg("DC","ud")
+DC.o[[2]]
 
-a<-c(PUD.p[[2]],TUD.p[[2]],DC.p[[2]])
-names(a)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
+b<-c(PUD.o[[2]],TUD.o[[2]],DC.o[[2]])
+names(b)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
 
-msummary(a, stars = TRUE)
+msummary(b, stars = TRUE)
+rm(b)
+```
 
+```{r `OLS and Poisson`, echo=FALSE}
+c<-list()
+c[["OLS_PUD"]]<-PUD.o[[2]]$p250
+c[["OLS_TUD"]]<-TUD.o[[2]]$p250
+c[["OLS_DC"]]<-DC.o[[2]]$p250
+c[["Poisson_PUD"]]<-PUD.p[[2]]$p250
+c[["Poisson_TUD"]]<-TUD.p[[2]]$p250
+c[["Poisson_DC"]]<-DC.p[[2]]$p250
+
+msummary(c, stars = TRUE)
+rm(c)
+```
+
+```{r `Poisson residuals`, echo=FALSE}
+rm(PUD.p,PUD.o,TUD.p,TUD.o,DC.o,DC.p)
+PUD.p<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = "ud"), data = df[df$source=="PUD"&df$hres==250,], family = poisson)
+TUD.p<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = "ud"), data = df[df$source=="TUD"&df$hres==250,], family = poisson)
+DC.p<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = "ud"), data = df[df$source=="DC"&df$hres==250,], family = poisson)
+
+df250PUD<-df[df$source=="PUD"&df$hres==250,]
+df250PUD$PUDres<-resid(PUD.p)
+#st_write(df250PUD,"df250PUD.gpkg") # Exporting to view in QGIS
+
+df250TUD<-df[df$source=="TUD"&df$hres==250,]
+df250TUD$TUDres<-resid(TUD.p)
+#st_write(df250TUD,"df250TUD.gpkg") # Exporting to view in QGIS
+
+df250DC<-df[df$source=="DC"&df$hres==250,]
+df250DC$DCres<-resid(DC.p)
+#st_write(df250DC,"df250DC.gpkg") # Exporting to view in QGIS
+
+class(df250PUD)
+
+# Moran's I calculation https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html https://rpubs.com/FelipeSantos/LISA_tmap_geoda
+
+nb.PUD<-poly2nb(df250PUD)
+nb.list.PUD<-nb2listw(nb.PUD, zero.policy = TRUE)
+print(nb.list.PUD, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
+print(listw2mat(nb.list.PUD)[1:10, 1:10], digits = 3)
+MC.PUD<-moran.mc(df250PUD$PUDres,nb.list.PUD,nsim = 999,zero.policy = TRUE)
+MC.PUD
+
+nb.TUD<-poly2nb(df250TUD)
+nb.list.TUD<-nb2listw(nb.TUD, zero.policy = TRUE)
+MC.TUD<-moran.mc(df250TUD$TUDres,nb.list.TUD,nsim = 999,zero.policy = TRUE)
+MC.TUD
+
+nb.DC<-poly2nb(df250DC)
+nb.list.DC<-nb2listw(nb.DC, zero.policy = TRUE)
+MC.DC<-moran.mc(df250DC$DCres,nb.list.DC,nsim = 999,zero.policy = TRUE)
+MC.DC
+#moran.test(df250DC$DCres,nb.list.DC,zero.policy = TRUE)
+moran.plot(df250DC$DCres,nb.list.DC,zero.policy = TRUE, labels = FALSE)
 ```
 
 ```{r `Negative binomial version, including cell`, echo=FALSE}
