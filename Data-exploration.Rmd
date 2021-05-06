@@ -325,26 +325,46 @@ df250DC$DCres<-resid(DC.p)
 
 class(df250PUD)
 
-# Moran's I calculation https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html https://rpubs.com/FelipeSantos/LISA_tmap_geoda
+# # Moran's I calculation https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html https://rpubs.com/FelipeSantos/LISA_tmap_geoda https://cran.r-project.org/web/packages/spdep/vignettes/nb_sf.html
+# nb.PUD<-poly2nb(df250PUD)
+# nb.list.PUD<-nb2listw(nb.PUD, style = "B", zero.policy = TRUE) 
+# print(nb.list.PUD, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
+# print(listw2mat(nb.list.PUD)[1:10, 1:10], digits = 3)
+# MC.PUD<-moran.mc(df250PUD$PUDres,nb.list.PUD,nsim = 999,zero.policy = TRUE)
+# MC.PUD
+# 
+# nb.TUD<-poly2nb(df250TUD)
+# nb.list.TUD<-nb2listw(nb.TUD, zero.policy = TRUE)
+# MC.TUD<-moran.mc(df250TUD$TUDres,nb.list.TUD,nsim = 999,zero.policy = TRUE)
+# MC.TUD
+# 
+# nb.DC<-poly2nb(df250DC)
+# nb.list.DC<-nb2listw(nb.DC, zero.policy = TRUE)
+# MC.DC<-moran.mc(df250DC$DCres,nb.list.DC,nsim = 999,zero.policy = TRUE) # https://rspatial.org/raster/analysis/analysis.pdf (pg.27)
+# MC.DC
+# moran.test(df250DC$DCres,nb.list.DC,zero.policy = TRUE)
+# moran.plot(df250DC$DCres,nb.list.DC,zero.policy = TRUE, labels = FALSE)
 
-nb.PUD<-poly2nb(df250PUD)
-nb.list.PUD<-nb2listw(nb.PUD, zero.policy = TRUE)
-print(nb.list.PUD, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
-print(listw2mat(nb.list.PUD)[1:10, 1:10], digits = 3)
-MC.PUD<-moran.mc(df250PUD$PUDres,nb.list.PUD,nsim = 999,zero.policy = TRUE)
-MC.PUD
+# Moran I using # nearest neighbors, versus adjacent neighbors, following guidance in Kelly (2020), pg. 11-12 https://www.ucd.ie/economics/t4media/WP20_06.pdf
+df250PUD.p<-st_centroid(df250PUD) # K nearest neighbors only accepts points
+nb5.PUD<-knn2nb(knearneigh(df250PUD.p, k=5))
+nb.list.PUD.p<-nb2listw(nb5.PUD, style = "B", zero.policy = TRUE)
+print(nb.list.PUD.p, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
+print(listw2mat(nb.list.PUD.p)[1:10, 1:10], digits = 3)
+MC.PUD.p<-moran.mc(df250PUD.p$PUDres,nb.list.PUD.p,nsim = 999,zero.policy = TRUE)
+MC.PUD.p
 
-nb.TUD<-poly2nb(df250TUD)
-nb.list.TUD<-nb2listw(nb.TUD, zero.policy = TRUE)
-MC.TUD<-moran.mc(df250TUD$TUDres,nb.list.TUD,nsim = 999,zero.policy = TRUE)
-MC.TUD
+df250TUD.p<-st_centroid(df250TUD)
+nb5.TUD<-knn2nb(knearneigh(df250TUD.p, k=5))
+nb.list.TUD.p<-nb2listw(nb5.TUD, style = "B", zero.policy = TRUE)
+MC.TUD.p<-moran.mc(df250TUD.p$TUDres,nb.list.TUD.p,nsim = 999,zero.policy = TRUE)
+MC.TUD.p
 
-nb.DC<-poly2nb(df250DC)
-nb.list.DC<-nb2listw(nb.DC, zero.policy = TRUE)
-MC.DC<-moran.mc(df250DC$DCres,nb.list.DC,nsim = 999,zero.policy = TRUE)
-MC.DC
-#moran.test(df250DC$DCres,nb.list.DC,zero.policy = TRUE)
-moran.plot(df250DC$DCres,nb.list.DC,zero.policy = TRUE, labels = FALSE)
+df250DC.p<-st_centroid(df250DC)
+nb5.DC<-knn2nb(knearneigh(df250DC.p, k=5))
+nb.list.DC.p<-nb2listw(nb5.DC, style = "B", zero.policy = TRUE)
+MC.DC.p<-moran.mc(df250DC.p$DCres,nb.list.DC.p,nsim = 999,zero.policy = TRUE)
+MC.DC.p
 ```
 
 ```{r `Negative binomial version, including cell`, echo=FALSE}
