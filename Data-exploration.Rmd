@@ -6,12 +6,13 @@ output:
 ---
 
 ```{r setup, include=FALSE, echo=FALSE}
-rm(list=ls()) # Clears workspace
+#rm(list=ls()) # Clears workspace
+options(scipen=999)
 knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools") 
+PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools","glmmfields", "R2BayesX", "BayesXsrc","CARBayes","coda","furrr","hglm","RANN") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -366,6 +367,167 @@ nb.list.DC.p<-nb2listw(nb5.DC, style = "B", zero.policy = TRUE)
 MC.DC.p<-moran.mc(df250DC.p$DCres,nb.list.DC.p,nsim = 999,zero.policy = TRUE)
 MC.DC.p
 ```
+
+```{r `GLMMfields Poisson`, echo=FALSE}
+# #options(mc.cores = parallel::detectCores())
+# df250PUD.p<-cbind(df250PUD.p,st_coordinates(df250PUD.p$geom)) 
+# system.time(m_spatial<-glmmfields(ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = df250PUD.p, family = poisson(link = "log"), lat = "X", lon = "Y"))
+# df250PUD.phat<-predict(m_spatial, type = "response")
+# df250PUD.p$phat<-df250PUD.phat$estimate
+# df250PUD.p$PUDres2<-df250PUD.p$phat-df250PUD.p$ud
+# st_write(df250PUD.p,"df250PUDp.gpkg") # Exporting to view in QGIS 
+# MC.PUD.p<-moran.mc(df250PUD.p$PUDres2,nb.list.PUD.p,nsim = 999,zero.policy = TRUE)
+# MC.PUD.p # Same spatial autocorrelation problem as running without random fields
+```
+
+```{r `CARBayes Poisson`, echo=FALSE}
+# Poisson, no spatial correlation modeling
+# sort(sapply(ls(), function(x) format(object.size(get(x)), unit = 'auto'))) # Memory used by objects, to determine how many workers are possible
+fit_model<-function(x) S.glm(ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson", burnin=10000, n.sample=200000, thin=5)
+system.time(glmPUD250.c1<-fit_model(df250PUD))
+glmPUD250.c1
+gc()
+system.time(glmPUD250.c2<-fit_model(df250PUD))
+glmPUD250.c2
+gc()
+beta.samples<-mcmc.list(glmPUD250.c1$samples$beta,glmPUD250.c2$samples$beta) # Convergence of Markov chains? https://cran.r-project.org/web/packages/CARBayes/vignettes/CARBayes.pdf pg.22
+gelman.diag(beta.samples) # Values less than 1.1, converged
+beta.samples.matrix<-rbind(glmPUD250.c1$samples$beta,glmPUD250.c2$samples$beta)
+colnames(beta.samples.matrix)<-colnames(glmPUD250.c1$X)
+round(t(apply(beta.samples.matrix, 2, quantile, c(0.5, 0.025, 0.975))),5) # inference
+
+df250PUD<-cbind(df250PUD,glmPUD250.c1$residuals)
+nb.PUD<-poly2nb(df250PUD)
+nb.list.PUD<-nb2listw(nb.PUD, style = "B")
+MC.PUD<-moran.mc(df250PUD$pearson,nb.list.PUD,nsim = 999) # Moran's I
+MC.PUD
+# rm(glmPUD250)
+df250PUD$pearson<-NULL 
+df250PUD$response<-NULL
+
+# Run Poisson with smaller random sample (does it remove spatial autocorrelation?)
+df250PUD.s<-slice_sample(df250PUD, n = 27315) # n random draws
+system.time(glmPUD250.c1<-fit_model(df250PUD.s))
+glmPUD250.c1
+system.time(glmPUD250.c2<-fit_model(df250PUD.s))
+glmPUD250.c2
+beta.samples<-mcmc.list(glmPUD250.c1$samples$beta,glmPUD250.c2$samples$beta) # Convergence of Markov chains? https://cran.r-project.org/web/packages/CARBayes/vignettes/CARBayes.pdf pg.22
+gelman.diag(beta.samples) # Values less than 1.1, converged
+beta.samples.matrix<-rbind(glmPUD250.c1$samples$beta,glmPUD250.c2$samples$beta)
+colnames(beta.samples.matrix)<-colnames(glmPUD250.c1$X)
+round(t(apply(beta.samples.matrix, 2, quantile, c(0.5, 0.025, 0.975))),5) # inference
+
+df250PUD.s<-cbind(df250PUD.s,glmPUD250.c1$residuals)
+df250PUD.s.p<-st_centroid(df250PUD.s)
+nb5.PUD.s.p<-knn2nb(knearneigh(df250PUD.s.p, k=5))
+nb5.list.PUD.s.p<-nb2listw(nb5.PUD.s.p, style = "B")
+MC.PUD<-moran.mc(df250PUD.s$pearson,nb5.list.PUD.s.p,nsim = 999) # Moran's I
+MC.PUD
+# rm(glmPUD250)
+df250PUD.s$pearson<-NULL
+df250PUD.s$response<-NULL
+
+
+
+# Poisson, spatial correlation modeling (using an arbitrary sample size)
+df250PUD.s<-slice_sample(df250PUD, n = 1000) # n random draws
+df250PUD.s.p<-st_centroid(df250PUD.s)
+coords.df250PUD.s.p<-st_centroid(st_geometry(df250PUD.s.p))
+
+# nb5.PUD.s.p<-knn2nb(knearneigh(df250PUD.s.p, k=2), sym = TRUE) # Alternative formulation of neighbors, pretty similar to sphere of influence approach below
+# plot(nb5.PUD.s.p,coords.df250PUD.s.p)
+
+trinb.PUD.s.p<-tri2nb(coords.df250PUD.s.p) # This approach will create symmetric neighbors
+nbsoi.PUD.s.p<-graph2nb(soi.graph(trinb.PUD.s.p, coords.df250PUD.s.p), sym=TRUE)
+# plot(nb_soi,coords.df250PUD.s.p)
+nb.mat.PUD.s.p<-nb2mat(nbsoi.PUD.s.p, style = "B", zero.policy = NULL)
+colnames(nb.mat.PUD.s.p)<-rownames(nb.mat.PUD.s.p) # https://stackoverflow.com/questions/27304797/spatial-weights-asymmetric-adjacency-matrix
+isSymmetric(nb.mat.PUD.s.p)
+
+fit_model_CAR<-function(x) S.CARbym(ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA, data = x, family = "poisson",W=nb.mat.PUD.s.p, burnin=500000, n.sample=3000000, thin=5)
+#fit_model_CAR<-function(x) S.CARbym(ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson",W=nb.mat.PUD.s.p, burnin=500000, n.sample=2200000, thin=1)
+
+system.time(glmPUD250CAR.1<-fit_model_CAR(df250PUD.s))
+c1<-glmPUD250CAR.1$samples$beta
+rm(glmPUD250CAR.1)
+gc()
+
+system.time(glmPUD250CAR.2<-fit_model_CAR(df250PUD.s))
+c2<-glmPUD250CAR.2$samples$beta
+rm(glmPUD250CAR.2)
+gc()
+
+system.time(glmPUD250CAR.3<-fit_model_CAR(df250PUD.s))
+c3<-glmPUD250CAR.3$samples$beta
+rm(glmPUD250CAR.3)
+gc()
+
+system.time(glmPUD250CAR.4<-fit_model_CAR(df250PUD.s))
+c4<-glmPUD250CAR.4$samples$beta
+rm(glmPUD250CAR.4)
+gc()
+
+system.time(glmPUD250CAR.5<-fit_model_CAR(df250PUD.s))
+c5<-glmPUD250CAR.5$samples$beta
+rm(glmPUD250CAR.5)
+gc()
+
+# Model diagnostics
+beta.samples<-mcmc.list(c1,c2)
+gelman.diag(beta.samples)
+beta.samples<-mcmc.list(c1,c2,c3)
+gelman.diag(beta.samples)
+beta.samples<-mcmc.list(c1,c2,c3,c4)
+gelman.diag(beta.samples)
+beta.samples<-mcmc.list(c1,c2,c3,c4,c5)
+gelman.diag(beta.samples)
+# https://cran.r-project.org/web/packages/CARBayes/vignettes/CARBayes.pdf pg.22
+traceplot(c5[,6], smooth = TRUE) # Issues with convergence? https://m-clark.github.io/bayesian-basics/diagnostics.html
+
+
+
+
+
+## Recompute Moran's I
+
+# MC.PUD.p<-moran.mc(df250PUD.p$PUDres2,nb.list.PUD.p,nsim = 999,zero.policy = TRUE)
+# MC.PUD.p # Same spatial autocorrelation problem as running without random fields
+```
+
+```{r `HGLM`, echo=FALSE}
+# # Need a symmetric matrix and cannot have rowsum == 0, therefore need to remove observations with no neighbors
+# `%notin%` <- Negate(`%in%`) # https://www.marsja.se/how-to-use-in-in-r/
+# df250PUD<-filter(df250PUD, id %notin% c(15496, 16627, 34043, 72159, 72160, 121144, 172721, 245112, 249054, 278856, 286903, 286902, 289417))
+# nb.PUD<-poly2nb(df250PUD)
+# nb.lw<-nb2listw(nb.PUD)
+# nb.W<-as(nb.lw, "CsparseMatrix")
+# df250PUD$index<-seq(1,length(df250PUD$id),1)
+# 
+# system.time(HGLM_sar<-hglm(fixed=ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, random= ~ 1|index, data=df250PUD, family=poisson(link=log), rand.family=SAR(D=nb.W)))
+# 
+# system.time(HGLM_car<-hglm(fixed=ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, random= ~ 1|index, data=df250PUD, family=poisson(link=log), rand.family=CAR(D=nb.W)))
+```
+
+```{r `R2BayesX`, echo=FALSE}
+# # Need a symmetric matrix and cannot have rowsum == 0, therefore need to remove observations with no neighbors 
+# `%notin%` <- Negate(`%in%`) # https://www.marsja.se/how-to-use-in-in-r/
+# df250PUD<-filter(df250PUD, id %notin% c(15496, 16627, 34043, 72159, 72160, 121144, 172721, 245112, 249054, 278856, 286903, 286902, 289417))
+# nb.PUD<-poly2nb(df250PUD, queen = TRUE)
+# nb.PUD # See printout for rows in the dataframe that have no links, if any
+# is.symmetric.nb(nb.PUD)
+# n.comp.nb(nb.PUD)$nc # https://edzer.github.io/UseR2019/part2.html 58 distinct graph components, due to islands. Not allowed with R2BayesX
+# comps<-n.comp.nb(nb.PUD)
+# hist(comps$comp.id)
+# 
+# nb.bx.PUD<-nb2gra(nb.PUD)
+# nb.bx.PUD.struct<-as.numeric(rownames(nb.bx.PUD))
+# df250PUD$r2bx<-nb.bx.PUD.struct
+# formulaR2BX<-ud ~ sx(RockyShore) + sx(SandyBeach) + sx(Marshes) + sx(Armored) + sx(sumpop) + sx(rdist) + sx(BIKE_PATH) + sx(CAMPGROUND) + sx(DSABLDACSS) + sx(FEE) + sx(PARKING) + sx(PTH_BEACH) + sx(RESTROOMS) + sx(STRS_BEACH) + sx(WaterTrail) + sx(BayTrail) + sx(ChA) + sx(meanat) + sx(meanat2) + sx(r2bx, bs = "spatial", map = nb.bx.PUD) 
+# system.time(b<-bayesx(formula = formulaR2BX, family = "poisson", method = "MCMC", data = df250PUD))
+# # bayesx_logfile(b)
+```
+
+
 
 ```{r `Negative binomial version, including cell`, echo=FALSE}
 # NB.reg<-function(tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
