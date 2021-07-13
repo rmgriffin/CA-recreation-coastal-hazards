@@ -150,6 +150,17 @@ knitr::kables(list(d1,d2,d3)) %>%
 
 A proposed crosswalk of ESI types to fewer shoreline classes: Rocky shore {1A, 2A, 6A, 8A}, Sandy beach {3A, 3B, 4, 5}, Marshes {9A, 9B, 10A}, Armored shore {1B, 6B, 8B, 8C}. 
 
+```{r `ESI crosswalk`, echo=FALSE}
+d1<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$Marshes>0,],fmt="%.2f", title = 'Marshes')
+d2<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$RockyShore>0,],fmt="%.2f", title = 'Rocky Shore')
+d3<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$SandyBeach>0,],fmt="%.2f", title = 'Sandy Beach')
+d4<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$Armored>0,],fmt="%.2f", title = 'Armored')
+
+knitr::kables(list(d1,d2,d3,d4)) %>%
+  kable_styling(position = "center", bootstrap_options = "none")
+```
+User days by shoreline ESI class
+
 ```{r `Dep Var regressions`, echo=FALSE}
 # df$ihsud<-log(df$ud + sqrt(df$ud^2 + 1)) # Inverse hyperbolic sine transformation of user days
 # df$lnud<-log(df$ud+1) # Natural log (+1 for zeros) transformation of user days
