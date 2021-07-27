@@ -322,8 +322,9 @@ results<-mutate_at(results, vars(BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDA
 # ESI crosswalk
 results$RockyShore<-results$x1a + results$x2a + results$x6a +results$x8a
 results$SandyBeach<-results$x3a + results$x3b + results$x4 + results$x5
-results$Marshes<-results$x9a + results$x9b + results$x10a
+results$Marshes<-results$x9b + results$x10a
 results$Armored<-results$x1b + results$x6b + results$x8b + results$x8c
+results$TidalFlat<-results$x7 + results$x9a
 
 # County 
 County<-st_read("./Data/CA_Counties_TIGER2016.gpkg")
