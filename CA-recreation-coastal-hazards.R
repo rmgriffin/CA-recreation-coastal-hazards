@@ -87,11 +87,20 @@ data.processing<-function(f,t){
   Pop.buff8m<-st_buffer(df,dist=12784) # Creating a (8 mile) buffered shapefile of hexagons
   Pop.buff8m<-st_transform(Pop.buff8m,st_crs(Pop))
   system.time(Pop.buff8m$sumpop<-exact_extract(Pop, Pop.buff8m, "sum")) # Extracting sum of population raster for each buffered polygon 
-  Pop.buff8m<-Pop.buff8m[,c("id","sumpop")]  # Merging to dataframe
+  Pop.buff8m<-Pop.buff8m[,c("id","sumpop")]
   Pop.buff8m$geometry<-NULL # Turns sf object into dataframe
-  df<-merge(df,Pop.buff8m,"id")
-  rm(Pop,Pop.buff8m) # Removing unneeded vars
+  df<-merge(df,Pop.buff8m,"id")  # Merging to dataframe
+  rm(Pop.buff8m) # Removing unneeded vars
   df$sumpop<-round(df$sumpop) # Rounding to whole individuals
+  
+  Pop2<-df
+  Pop2<-st_transform(Pop2,st_crs(Pop))
+  system.time(Pop2$sumpop2<-exact_extract(Pop, Pop2, "sum")) # Extracting sum of population raster for each buffered polygon 
+  Pop2<-Pop2[,c("id","sumpop2")]
+  Pop2$geometry<-NULL # Turns sf object into dataframe
+  df<-merge(df,Pop2,"id")  # Merging to dataframe
+  rm(Pop,Pop2) # Removing unneeded vars
+  df$sumpop2<-round(df$sumpop2) # Rounding to whole individuals
   
   Rd<-st_read("Data/Roads_2015.gpkg") # Road network distance. Following https://stackoverflow.com/questions/53854803/calculate-minimum-distance-between-multiple-polygons-with-r
   Rd<-st_transform(Rd, st_crs(df))
@@ -313,6 +322,7 @@ results<-results[!sf::st_is_empty(results), ] %>% na.omit() # https://stackoverf
 sapply(results, function(x) sum(is.na(x))) # Rechecking to see if there are any NAs
 # rescaling population to thousands and distances to km, to deal with model convergence issues
 results$sumpop<-results$sumpop/1000
+results$sumpop2<-results$sumpop2/1000
 results$rdist<-results$rdist/1000
 results$wtlddist<-results$wtlddist/1000
 
