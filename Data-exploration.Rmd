@@ -12,7 +12,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools","glmmfields", "R2BayesX", "BayesXsrc","CARBayes","coda","furrr","hglm","RANN") 
+PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools","glmmfields", "R2BayesX", "BayesXsrc","CARBayes","coda","furrr","hglm","RANN","dbscan","pgirmess") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -92,12 +92,12 @@ rm(f1,f2,f3,t1,t2,t3,summaryname)
 The data is characterized by a significant number of zeros, that increase as a percentage of the data at higher resolutions. Twitter data seems to produce more zeros than flickr or cell data at all resolutions. 
 
 ```{r continuous, echo=FALSE}
-datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean annual air temp (C)`=meanat) + (`Mean annual sea surface temp (C)`=meanSST) + (`Mean annual chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==250,],fmt="%.2f", title = 'Continuous Predictors 250m')
+datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Population within cell`=sumpop2) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean annual air temp (C)`=meanat) + (`Mean annual sea surface temp (C)`=meanSST) + (`Mean annual chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==250,],fmt="%.2f", title = 'Continuous Predictors 250m')
 
-datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean annual air temp (C)`=meanat) + (`Mean annual sea surface temp (C)`=meanSST) + (`Mean annual chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==1000,],fmt="%.2f", title = 'Continuous Predictors 1000m')
+datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Population within cell`=sumpop2) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean annual air temp (C)`=meanat) + (`Mean annual sea surface temp (C)`=meanSST) + (`Mean annual chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==1000,],fmt="%.2f", title = 'Continuous Predictors 1000m')
 ```
 
-Summary statistics are shown for all potential continuous predictors. There is little variation across resolutions, but note that the higher resolution observation picks up finer scale variation in the 'distance to X' variables.
+Summary statistics are shown for all potential continuous predictors. There is little variation across resolutions (except pop within cell), but note that the higher resolution observation picks up finer scale variation in the 'distance to X' variables.
 
 ```{r discrete, echo=FALSE}
 d1<-datasummary((`Bike path`=BIKE_PATH) + (`Boating`=BOATING) + (`Boating facilities`=BT_FACIL_T) + (`Campground`=CAMPGROUND) + (`Disabled Access`=DSABLDACSS) + (`Fee`=FEE) + (`Fishing`=FISHING) + (`Parking available`=PARKING) + (`Path to beach`=PTH_BEACH) + (`Restrooms`=RESTROOMS) + (`Stairs to beach`=STRS_BEACH) + (`SF Bay Water Trail`=WaterTrail) + (`SF Bay Trail`=BayTrail) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'Binary Predictors 250m')
@@ -124,25 +124,48 @@ colnames(cormat)<-c("1a","1b","2a","3a","3b","4","5","6a","6b","7","8a","8b","8c
 corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = "RdBu"),tl.col = "black")
 ```
 
-Correlogram of ESI types. Not much correlation, though tidal flats and marshes are often observed together.
+Correlogram of ESI types. Not much correlation, though sheltered tidal flats and marshes are often observed together.
 
 ```{r correlationYC, echo=FALSE, fig.align="center"}
-cormat<-df.nosf[df.nosf$hres==1000,] %>%
-  dplyr::select(sumpop,rdist,BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH,WaterTrail,BayTrail,wtlddist,meanprec,meanat,meanSST,ChA,RockyShore,Armored,Marshes,SandyBeach)
+cormat<-df.nosf[df.nosf$hres==250,] %>%
+  dplyr::select(sumpop,sumpop2,rdist,BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH,WaterTrail,BayTrail,wtlddist,meanprec,meanat,meanSST,ChA,RockyShore,Armored,Marshes,SandyBeach,TidalFlat)
 cormat<-round(cor(cormat),2)
 # rownames(cormat)<-c("Exposed rocky shore (1a)","Exposed solid man-made structures (1b)","Exposed wave-cut platforms in bedrock (2a)","Fine-to-medium grain sand beaches (3a)","Scarps and steep slopes in sand (3b)","Coarse-grained sand beaches (4)","Mixed sand and gravel beaches (5)","Gravel beaches (6a)","Riprap (6b)","Exposed tidal flats (7)","Sheltered rocky shores (8a)","Sheltered man-made structures (8b)","Sheltered riprap (8c)","Sheltered tidal flat (9a)","Vegetated low riverine banks (9b)","Salt and brackish marshes (10a)")
 # colnames(cormat)<-c("1a","1b","2a","3a","3b","4","5","6a","6b","7","8a","8b","8c","9a","9b","10a")
 par(xpd = TRUE) # https://stackoverflow.com/questions/46331172/corrplot-margin-in-plot-window
+
 corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = "RdBu"),tl.col = "black", tl.srt = 45, mar = c(2, 2, 2, 2))
 
+# #https://blog.hasanbul.li/2018/01/14/exporting-correlation-plots/
+# png(height=1800, width=1800, file="corrplot.png", type = "cairo")
+# corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = "RdBu"),tl.col = "black", tl.srt = 45, mar = c(2, 2, 2, 2))
+# dev.off()
 ```
 
-Correlogram of other predictors. Relationships are stable across resolutions; the above plots correlations at 1000m resolution. Strong correlations (>|0.5|) are mainly observed between the atmospheric and water characteristics. Air temperature, precipitation, and water temperature in particular.
+Correlogram of other predictors. Relationships are stable across resolutions; the above plots correlations at 250m resolution. Strong correlations (>|0.5|) are observed between:
+- Mean air temp and Pop within 8 miles (+)
+- Road distance and marsh distance (+)
+- Road distance and ChA (-)
+- Fee and campground (+)
+- Boating facility and boating (+)
+- Parking and disabled access (+)
+- Parking and fishing (+)
+- Restrooms and disabled access (+)
+- Restrooms and fee (+)
+- Restrooms and fishing (+)
+- Restrooms and parking (+)
+- Marsh distance and ChA (-)
+- Mean prec and mean air temp (-)
+- Mean prec and mean sea surface temp (-)
+- Mean air temp and mean sea surface temp (+)
+- Tidal flat and marshes
+
+Should consider removing: mean prec, restrooms, mean sea surface temp, boating
 
 ```{r `ESI crosswalk`, echo=FALSE}
-d1<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'ESI Length (m) @ 1000m')
-d2<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==500,],fmt="%.2f", title = 'ESI Length (m) @ 500m')
-d3<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'ESI Length (m) @ 250m')
+d1<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) + (`TidalFlat`=TidalFlat) ~ Mean + SD, data = df[df$hres==1000,],fmt="%.2f", title = 'ESI Length (m) @ 1000m')
+d2<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) + (`TidalFlat`=TidalFlat) ~ Mean + SD, data = df[df$hres==500,],fmt="%.2f", title = 'ESI Length (m) @ 500m')
+d3<-datasummary((`Rocky shore`=RockyShore) + (`Sandy beach`=SandyBeach) + (`Marshes`=Marshes) + (`Armored`=Armored) + (`TidalFlat`=TidalFlat) ~ Mean + SD, data = df[df$hres==250,],fmt="%.2f", title = 'ESI Length (m) @ 250m')
 
 knitr::kables(list(d1,d2,d3)) %>%
   kable_styling(position = "center", bootstrap_options = "none")
@@ -150,24 +173,19 @@ knitr::kables(list(d1,d2,d3)) %>%
 
 A proposed crosswalk of ESI types to fewer shoreline classes: Rocky shore {1A, 2A, 6A, 8A}, Sandy beach {3A, 3B, 4, 5}, Marshes {9A, 9B, 10A}, Armored shore {1B, 6B, 8B, 8C}. 
 
-```{r `ESI crosswalk`, echo=FALSE}
+```{r `ESI crosswalk2`, echo=FALSE}
 d1<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$Marshes>0,],fmt="%.2f", title = 'Marshes')
 d2<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$RockyShore>0,],fmt="%.2f", title = 'Rocky Shore')
 d3<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$SandyBeach>0,],fmt="%.2f", title = 'Sandy Beach')
 d4<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$Armored>0,],fmt="%.2f", title = 'Armored')
+d5<-datasummary(ud ~ Mean*source, data = df[df$hres==250&df$TidalFlat>0,],fmt="%.2f", title = 'Tidal Flat')
 
-knitr::kables(list(d1,d2,d3,d4)) %>%
+knitr::kables(list(d1,d2,d3,d4,d5)) %>%
   kable_styling(position = "center", bootstrap_options = "none")
 ```
 User days by shoreline ESI class
 
 ```{r `Dep Var regressions`, echo=FALSE}
-# df$ihsud<-log(df$ud + sqrt(df$ud^2 + 1)) # Inverse hyperbolic sine transformation of user days
-# df$lnud<-log(df$ud+1) # Natural log (+1 for zeros) transformation of user days
-# 
-# ## Do not transform count data DOI: https://doi.org/10.1111/j.2041-210X.2010.00021.x
-# ## For testing the significance of regression coefficients, go ahead and log‐transform count data https://doi.org/10.1111/2041-210X.12386
-# 
 # regs<-function(rs,tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
 #   models <- list()
 #   models.rob<-list()
@@ -240,102 +258,141 @@ From a theoretical perspective shoreline visitation choice is not typically trea
 # No approach for robust standard errors in R for ZINB estimated by glmmTMB, if needed.
 ```
 
-```{r `Poisson version, including cell`, echo=FALSE}
-df$meanat2<-df$meanat^2
+```{r `glm Poisson`, echo=FALSE}
+## Adding variables
+# Do not transform count data DOI: https://doi.org/10.1111/j.2041-210X.2010.00021.x
+# For testing the significance of regression coefficients, go ahead and log‐transform count data https://doi.org/10.1111/2041-210X.12386
+df$ihsud<-log(df$ud + sqrt(df$ud^2 + 1)) # Inverse hyperbolic sine transformation of user days
+df$lnud<-log(df$ud+1) # Natural log (+1 for zeros) transformation of user days
 
-Pois.reg<-function(tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
+df$meanat2<-df$meanat^2 # Polynomial air temp
+df$RockyShoreI<-ifelse(df$RockyShore==0,0,1) # Indicator variables instead of lengths, presence/absence in a cell
+df$SandyBeachI<-ifelse(df$SandyBeach==0,0,1)
+df$MarshesI<-ifelse(df$Marshes==0,0,1)
+df$ArmoredI<-ifelse(df$Armored==0,0,1)
+df$TidalFlatI<-ifelse(df$TidalFlat==0,0,1)
+df$x3aI<-ifelse(df$x3a==0,0,1)
+df$x10aI<-ifelse(df$x10a==0,0,1)
+
+## Regression across observation size
+
+Pois.reg<-function(tipe,dv,v){ # tipe is either "PUD","TUD","DC" / dv is either "ud" or "ihsud" or "lnud" / v is a list of variables to include, referenced by column name
   models <- list()
   models.rob<-list()
-  models[['p250']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==250,], family = poisson)
+  models[['p250']]<-glm(reformulate(termlabels = v,response = dv), data = df[df$source==tipe&df$hres==250,], family = poisson)
   models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
   
-  models[['p500']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==500,], family = poisson)
+  models[['p500']]<-glm(reformulate(termlabels = v,response = dv), data = df[df$source==tipe&df$hres==500,], family = poisson)
   models.rob[['p500']]<-coeftest(models[['p500']], vcov = sandwich)
   
-  models[['p1000']]<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==1000,], family = poisson)
+  models[['p1000']]<-glm(reformulate(termlabels = v,response = dv), data = df[df$source==tipe&df$hres==1000,], family = poisson)
   models.rob[['p1000']]<-coeftest(models[['p1000']], vcov = sandwich)
 
   return(list(models,models.rob))
 }
 
-PUD.p<-Pois.reg("PUD","ud")
+varlist<-c(
+        "RockyShore",
+#        "SandyBeach",
+        "x3a",
+        "Marshes",
+        "Armored",
+        "TidalFlat",
+        "sumpop",
+        "sumpop2",
+        "rdist",
+        "BIKE_PATH",
+        "BOATING",
+#        "BT_FACIL_T",
+        "CAMPGROUND",
+        "DSABLDACSS",
+        "FEE",
+        "FISHING",
+        "PARKING",
+        "PTH_BEACH",
+#        "RESTROOMS",
+        "STRS_BEACH",
+        "WaterTrail",
+        "BayTrail",
+#        "wtlddist",
+        "ChA",
+#        "meanprec",
+#        "meanSST",
+        "meanat",
+        "meanat2")
+
+varlistI<-c(
+        "RockyShoreI",
+        "SandyBeachI",
+#       "x3aI",
+        "MarshesI",
+#        "x10aI",
+        "ArmoredI",
+#        "TidalFlatI",
+        "sumpop",
+        "sumpop2",
+        "rdist",
+        "BIKE_PATH",
+        "BOATING",
+#        "BT_FACIL_T",
+        "CAMPGROUND",
+        "DSABLDACSS",
+        "FEE",
+        "FISHING",
+        "PARKING",
+        "PTH_BEACH",
+#        "RESTROOMS",
+        "STRS_BEACH",
+        "WaterTrail",
+        "BayTrail",
+#        "wtlddist",
+        "ChA",
+#        "meanprec",
+#        "meanSST",
+        "meanat",
+        "meanat2")
+
+PUD.p<-Pois.reg("PUD","ud",varlistI)
 PUD.p[[2]]
-TUD.p<-Pois.reg("TUD","ud")
+TUD.p<-Pois.reg("TUD","ud",varlistI)
 TUD.p[[2]]
-DC.p<-Pois.reg("DC","ud")
+DC.p<-Pois.reg("DC","ud",varlistI)
 DC.p[[2]]
 
 a<-c(PUD.p[[2]],TUD.p[[2]],DC.p[[2]])
 names(a)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
 
 msummary(a, stars = TRUE)
-rm(a)
-```
 
-The cellular data has convergence issues with most of the regression formats, so we re-estimate models using the Poisson regression
+## Regression using 250m observation size, estimating spatial autocorrelation
 
-```{r `OLS version, including cell`, echo=FALSE}
-OLS.reg<-function(tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
-  models <- list()
-  models.rob<-list()
-  models[['p250']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==250,])
-  models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
-  
-  models[['p500']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==500,])
-  models.rob[['p500']]<-coeftest(models[['p500']], vcov = sandwich)
-  
-  models[['p1000']]<-lm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = dv), data = df[df$source==tipe&df$hres==1000,])
-  models.rob[['p1000']]<-coeftest(models[['p1000']], vcov = sandwich)
+set.seed(1218)
 
-  return(list(models,models.rob))
-}
+s<-1 # sample proportion, used to check for spatial autocorrelation in smaller samples. Set to 1 to use the whole sample.
+dfs<-slice_sample(df, prop = s)
 
-PUD.o<-OLS.reg("PUD","ud")
-PUD.o[[2]]
-TUD.o<-OLS.reg("TUD","ud")
-TUD.o[[2]]
-DC.o<-OLS.reg("DC","ud")
-DC.o[[2]]
+PUD.p<-glm(reformulate(termlabels = varlist, response = "ud"), data = dfs[dfs$source=="PUD"&dfs$hres==250,], family = poisson)
+TUD.p<-glm(reformulate(termlabels = varlist, response = "ud"), data = dfs[dfs$source=="TUD"&dfs$hres==250,], family = poisson)
+DC.p<-glm(reformulate(termlabels = varlist, response = "ud"), data = dfs[dfs$source=="DC"&dfs$hres==250,], family = poisson)
 
-b<-c(PUD.o[[2]],TUD.o[[2]],DC.o[[2]])
-names(b)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
+a<-list()
+a[["PUD"]]<-PUD.p
+a[["TUD"]]<-TUD.p
+a[["DC"]]<-DC.p
+msummary(a, stars = TRUE)
 
-msummary(b, stars = TRUE)
-rm(b)
-```
 
-```{r `OLS and Poisson`, echo=FALSE}
-c<-list()
-c[["OLS_PUD"]]<-PUD.o[[2]]$p250
-c[["OLS_TUD"]]<-TUD.o[[2]]$p250
-c[["OLS_DC"]]<-DC.o[[2]]$p250
-c[["Poisson_PUD"]]<-PUD.p[[2]]$p250
-c[["Poisson_TUD"]]<-TUD.p[[2]]$p250
-c[["Poisson_DC"]]<-DC.p[[2]]$p250
-
-msummary(c, stars = TRUE)
-rm(c)
-```
-
-```{r `Poisson residuals`, echo=FALSE}
-rm(PUD.p,PUD.o,TUD.p,TUD.o,DC.o,DC.p)
-PUD.p<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = "ud"), data = df[df$source=="PUD"&df$hres==250,], family = poisson)
-TUD.p<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = "ud"), data = df[df$source=="TUD"&df$hres==250,], family = poisson)
-DC.p<-glm(reformulate(termlabels = c("RockyShore","SandyBeach","Marshes","Armored","sumpop","rdist","BIKE_PATH","CAMPGROUND","DSABLDACSS","FEE","PARKING","PTH_BEACH","RESTROOMS","STRS_BEACH","WaterTrail","BayTrail","ChA","meanat","meanat2"),response = "ud"), data = df[df$source=="DC"&df$hres==250,], family = poisson)
-
-df250PUD<-df[df$source=="PUD"&df$hres==250,]
+df250PUD<-dfs[dfs$source=="PUD"&dfs$hres==250,]
 df250PUD$PUDres<-resid(PUD.p)
 #st_write(df250PUD,"df250PUD.gpkg") # Exporting to view in QGIS
 
-df250TUD<-df[df$source=="TUD"&df$hres==250,]
+df250TUD<-dfs[dfs$source=="TUD"&dfs$hres==250,]
 df250TUD$TUDres<-resid(TUD.p)
 #st_write(df250TUD,"df250TUD.gpkg") # Exporting to view in QGIS
 
-df250DC<-df[df$source=="DC"&df$hres==250,]
+df250DC<-dfs[dfs$source=="DC"&dfs$hres==250,]
 df250DC$DCres<-resid(DC.p)
 #st_write(df250DC,"df250DC.gpkg") # Exporting to view in QGIS
-
-class(df250PUD)
 
 # # Moran's I calculation https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html https://rpubs.com/FelipeSantos/LISA_tmap_geoda https://cran.r-project.org/web/packages/spdep/vignettes/nb_sf.html
 # nb.PUD<-poly2nb(df250PUD)
@@ -359,24 +416,97 @@ class(df250PUD)
 
 # Moran I using # nearest neighbors, versus adjacent neighbors, following guidance in Kelly (2020), pg. 11-12 https://www.ucd.ie/economics/t4media/WP20_06.pdf
 df250PUD.p<-st_centroid(df250PUD) # K nearest neighbors only accepts points
-nb5.PUD<-knn2nb(knearneigh(df250PUD.p, k=5))
-nb.list.PUD.p<-nb2listw(nb5.PUD, style = "B", zero.policy = TRUE)
+nb.PUD<-knn2nb(knearneigh(df250PUD.p, k=20))
+nb.list.PUD.p<-nb2listw(nb.PUD, style = "B", zero.policy = TRUE)
 print(nb.list.PUD.p, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
 print(listw2mat(nb.list.PUD.p)[1:10, 1:10], digits = 3)
-MC.PUD.p<-moran.mc(df250PUD.p$PUDres,nb.list.PUD.p,nsim = 999,zero.policy = TRUE)
+MC.PUD.p<-moran.mc(df250PUD.p$PUDres,nb.list.PUD.p,nsim = 999,zero.policy = TRUE) # Do not use for regression residuals http://www.sethspielman.org/courses/geog5023/lectures/Lecture_8_2015.pdf
+MC.PUD.p<-lm.morantest(PUD.p,nb.list.PUD.p)
 MC.PUD.p
 
 df250TUD.p<-st_centroid(df250TUD)
-nb5.TUD<-knn2nb(knearneigh(df250TUD.p, k=5))
-nb.list.TUD.p<-nb2listw(nb5.TUD, style = "B", zero.policy = TRUE)
+nb.TUD<-knn2nb(knearneigh(df250TUD.p, k=20))
+nb.list.TUD.p<-nb2listw(nb.TUD, style = "B", zero.policy = TRUE)
 MC.TUD.p<-moran.mc(df250TUD.p$TUDres,nb.list.TUD.p,nsim = 999,zero.policy = TRUE)
 MC.TUD.p
 
 df250DC.p<-st_centroid(df250DC)
-nb5.DC<-knn2nb(knearneigh(df250DC.p, k=5))
-nb.list.DC.p<-nb2listw(nb5.DC, style = "B", zero.policy = TRUE)
+nb.DC<-knn2nb(knearneigh(df250DC.p, k=20))
+nb.list.DC.p<-nb2listw(nb.DC, style = "B", zero.policy = TRUE)
 MC.DC.p<-moran.mc(df250DC.p$DCres,nb.list.DC.p,nsim = 999,zero.policy = TRUE)
 MC.DC.p
+
+# Correlograms
+system.time(corPUD250<-spdep::sp.correlogram(nb.PUD,df250PUD.p$PUDres,order=20,method = "I", zero.policy = TRUE))
+#plot(corPUD250)
+system.time(corTUD250<-spdep::sp.correlogram(nb.TUD,df250TUD.p$TUDres,order=20,method = "I", zero.policy = TRUE))
+system.time(corDC250<-spdep::sp.correlogram(nb.DC,df250DC.p$DCres,order=20,method = "I", zero.policy = TRUE))
+
+# Variogram https://www.aspexit.com/implementing-variograms-in-r/
+df250PUD.p<-as_Spatial(df250PUD.p)
+df250TUD.p<-as_Spatial(df250TUD.p)
+df250DC.p<-as_Spatial(df250DC.p)
+
+varPUD250<-gstat::variogram(PUDres~1, data = df250PUD.p, cutoff = 15000)
+varTUD250<-gstat::variogram(TUDres~1, data = df250TUD.p, cutoff = 15000)
+varDC250<-gstat::variogram(DCres~1, data = df250DC.p, cutoff = 15000)
+
+varPUD250fit<-gstat::fit.variogram(varPUD250, model = vgm("Exp"))
+varPUD250fit
+
+varTUD250fit<-gstat::fit.variogram(varTUD250, model = vgm("Exp"))
+varTUD250fit
+
+varDC250fit<-gstat::fit.variogram(varDC250, model = vgm("Exp"))
+varDC250fit
+
+plot(varPUD250,varPUD250fit)
+plot(varTUD250,varTUD250fit)
+plot(varDC250,varDC250fit)
+
+```
+
+```{r `OLS version, including cell`, echo=FALSE}
+# OLS.reg<-function(tipe,dv,v){ # tipe is either "PUD","TUD","DC" / dv is either "ud" or "ihsud" or "lnud" / v is a list of variables to include, referenced by column name
+#   models <- list()
+#   models.rob<-list()
+#   models[['p250']]<-lm(reformulate(termlabels = v,response = dv), data = df[df$source==tipe&df$hres==250,])
+#   models.rob[['p250']]<-coeftest(models[['p250']], vcov = sandwich)
+#   
+#   models[['p500']]<-lm(reformulate(termlabels = v,response = dv), data = df[df$source==tipe&df$hres==500,])
+#   models.rob[['p500']]<-coeftest(models[['p500']], vcov = sandwich)
+#   
+#   models[['p1000']]<-lm(reformulate(termlabels = v,response = dv), data = df[df$source==tipe&df$hres==1000,])
+#   models.rob[['p1000']]<-coeftest(models[['p1000']], vcov = sandwich)
+# 
+#   return(list(models,models.rob))
+# }
+# 
+# PUD.o<-OLS.reg("PUD","ud",varlist)
+# PUD.o[[2]]
+# TUD.o<-OLS.reg("TUD","ud",varlist)
+# TUD.o[[2]]
+# DC.o<-OLS.reg("DC","ud",varlist)
+# DC.o[[2]]
+# 
+# b<-c(PUD.o[[2]],TUD.o[[2]],DC.o[[2]])
+# names(b)<-c("PUD250m","PUD500m","PUD1000m","TUD250m","TUD500m","TUD1000m","DC250m","DC500m","DC1000m")
+# 
+# msummary(b, stars = TRUE)
+# rm(b)
+```
+
+```{r `OLS and Poisson`, echo=FALSE}
+# c<-list()
+# c[["OLS_PUD"]]<-PUD.o[[2]]$p250
+# c[["OLS_TUD"]]<-TUD.o[[2]]$p250
+# c[["OLS_DC"]]<-DC.o[[2]]$p250
+# c[["Poisson_PUD"]]<-PUD.p[[2]]$p250
+# c[["Poisson_TUD"]]<-TUD.p[[2]]$p250
+# c[["Poisson_DC"]]<-DC.p[[2]]$p250
+# 
+# msummary(c, stars = TRUE)
+# rm(c)
 ```
 
 ```{r `GLMMfields Poisson`, echo=FALSE}
@@ -394,7 +524,7 @@ MC.DC.p
 ```{r `CARBayes Poisson`, echo=FALSE}
 # Poisson, no spatial correlation modeling
 # sort(sapply(ls(), function(x) format(object.size(get(x)), unit = 'auto'))) # Memory used by objects, to determine how many workers are possible
-fit_model<-function(x) S.glm(ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson", burnin=10000, n.sample=200000, thin=5)
+fit_model<-function(x) S.glm(ud ~ RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson", burnin=10000, n.sample=200000, thin=5)
 system.time(glmPUD250.c1<-fit_model(df250PUD))
 glmPUD250.c1
 gc()
@@ -407,41 +537,23 @@ beta.samples.matrix<-rbind(glmPUD250.c1$samples$beta,glmPUD250.c2$samples$beta)
 colnames(beta.samples.matrix)<-colnames(glmPUD250.c1$X)
 round(t(apply(beta.samples.matrix, 2, quantile, c(0.5, 0.025, 0.975))),5) # inference
 
+# Moran's I
 df250PUD<-cbind(df250PUD,glmPUD250.c1$residuals)
-nb.PUD<-poly2nb(df250PUD)
-nb.list.PUD<-nb2listw(nb.PUD, style = "B")
-MC.PUD<-moran.mc(df250PUD$pearson,nb.list.PUD,nsim = 999) # Moran's I
-MC.PUD
+df250PUD.p<-st_centroid(df250PUD) # K nearest neighbors only accepts points
+nb5.PUD<-knn2nb(knearneigh(df250PUD.p, k=5))
+nb.list.PUD.p<-nb2listw(nb5.PUD, style = "B", zero.policy = TRUE)
+print(nb.list.PUD.p, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
+print(listw2mat(nb.list.PUD.p)[1:10, 1:10], digits = 3)
+MC.PUD.p<-moran.mc(df250PUD.p$pearson,nb.list.PUD.p,nsim = 999,zero.policy = TRUE)
+MC.PUD.p
 # rm(glmPUD250)
 df250PUD$pearson<-NULL 
 df250PUD$response<-NULL
-
-# Run Poisson with smaller random sample (does it remove spatial autocorrelation?)
-df250PUD.s<-slice_sample(df250PUD, n = 27315) # n random draws
-system.time(glmPUD250.c1<-fit_model(df250PUD.s))
-glmPUD250.c1
-system.time(glmPUD250.c2<-fit_model(df250PUD.s))
-glmPUD250.c2
-beta.samples<-mcmc.list(glmPUD250.c1$samples$beta,glmPUD250.c2$samples$beta) # Convergence of Markov chains? https://cran.r-project.org/web/packages/CARBayes/vignettes/CARBayes.pdf pg.22
-gelman.diag(beta.samples) # Values less than 1.1, converged
-beta.samples.matrix<-rbind(glmPUD250.c1$samples$beta,glmPUD250.c2$samples$beta)
-colnames(beta.samples.matrix)<-colnames(glmPUD250.c1$X)
-round(t(apply(beta.samples.matrix, 2, quantile, c(0.5, 0.025, 0.975))),5) # inference
-
-df250PUD.s<-cbind(df250PUD.s,glmPUD250.c1$residuals)
-df250PUD.s.p<-st_centroid(df250PUD.s)
-nb5.PUD.s.p<-knn2nb(knearneigh(df250PUD.s.p, k=5))
-nb5.list.PUD.s.p<-nb2listw(nb5.PUD.s.p, style = "B")
-MC.PUD<-moran.mc(df250PUD.s$pearson,nb5.list.PUD.s.p,nsim = 999) # Moran's I
-MC.PUD
-# rm(glmPUD250)
-df250PUD.s$pearson<-NULL
-df250PUD.s$response<-NULL
-
-
+df250PUD.p$pearson<-NULL 
+df250PUD.p$response<-NULL
 
 # Poisson, spatial correlation modeling (using an arbitrary sample size)
-df250PUD.s<-slice_sample(df250PUD, n = 1000) # n random draws
+df250PUD.s<-slice_sample(df250PUD, n = 5000) # n random draws
 df250PUD.s.p<-st_centroid(df250PUD.s)
 coords.df250PUD.s.p<-st_centroid(st_geometry(df250PUD.s.p))
 
@@ -450,12 +562,12 @@ coords.df250PUD.s.p<-st_centroid(st_geometry(df250PUD.s.p))
 
 trinb.PUD.s.p<-tri2nb(coords.df250PUD.s.p) # This approach will create symmetric neighbors
 nbsoi.PUD.s.p<-graph2nb(soi.graph(trinb.PUD.s.p, coords.df250PUD.s.p), sym=TRUE)
-# plot(nb_soi,coords.df250PUD.s.p)
+# plot(nb_soi.PUD.s.p,coords.df250PUD.s.p)
 nb.mat.PUD.s.p<-nb2mat(nbsoi.PUD.s.p, style = "B", zero.policy = NULL)
 colnames(nb.mat.PUD.s.p)<-rownames(nb.mat.PUD.s.p) # https://stackoverflow.com/questions/27304797/spatial-weights-asymmetric-adjacency-matrix
 isSymmetric(nb.mat.PUD.s.p)
 
-fit_model_CAR<-function(x) S.CARbym(ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA, data = x, family = "poisson",W=nb.mat.PUD.s.p, burnin=500000, n.sample=3000000, thin=5)
+fit_model_CAR<-function(x) S.CARbym(ud ~ RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson",W=nb.mat.PUD.s.p, burnin=500000, n.sample=3000000, thin=5)
 #fit_model_CAR<-function(x) S.CARbym(ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson",W=nb.mat.PUD.s.p, burnin=500000, n.sample=2200000, thin=1)
 
 system.time(glmPUD250CAR.1<-fit_model_CAR(df250PUD.s))
@@ -503,6 +615,10 @@ traceplot(c5[,6], smooth = TRUE) # Issues with convergence? https://m-clark.gith
 
 # MC.PUD.p<-moran.mc(df250PUD.p$PUDres2,nb.list.PUD.p,nsim = 999,zero.policy = TRUE)
 # MC.PUD.p # Same spatial autocorrelation problem as running without random fields
+```
+
+```{r `spaMM`, echo=FALSE}
+
 ```
 
 ```{r `HGLM`, echo=FALSE}
