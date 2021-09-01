@@ -293,8 +293,8 @@ Pois.reg<-function(tipe,dv,v){ # tipe is either "PUD","TUD","DC" / dv is either 
 
 varlist<-c(
         "RockyShore",
-#        "SandyBeach",
-        "x3a",
+        "SandyBeach",
+#        "x3a",
         "Marshes",
         "Armored",
         "TidalFlat",
@@ -420,20 +420,22 @@ nb.PUD<-knn2nb(knearneigh(df250PUD.p, k=20))
 nb.list.PUD.p<-nb2listw(nb.PUD, style = "B", zero.policy = TRUE)
 print(nb.list.PUD.p, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
 print(listw2mat(nb.list.PUD.p)[1:10, 1:10], digits = 3)
-MC.PUD.p<-moran.mc(df250PUD.p$PUDres,nb.list.PUD.p,nsim = 999,zero.policy = TRUE) # Do not use for regression residuals http://www.sethspielman.org/courses/geog5023/lectures/Lecture_8_2015.pdf
+#MC.PUD.p<-moran.mc(df250PUD.p$PUDres,nb.list.PUD.p,nsim = 999,zero.policy = TRUE) # Do not use for regression residuals http://www.sethspielman.org/courses/geog5023/lectures/Lecture_8_2015.pdf
 MC.PUD.p<-lm.morantest(PUD.p,nb.list.PUD.p)
 MC.PUD.p
 
 df250TUD.p<-st_centroid(df250TUD)
 nb.TUD<-knn2nb(knearneigh(df250TUD.p, k=20))
 nb.list.TUD.p<-nb2listw(nb.TUD, style = "B", zero.policy = TRUE)
-MC.TUD.p<-moran.mc(df250TUD.p$TUDres,nb.list.TUD.p,nsim = 999,zero.policy = TRUE)
+#MC.TUD.p<-moran.mc(df250TUD.p$TUDres,nb.list.TUD.p,nsim = 999,zero.policy = TRUE)
+MC.TUD.p<-lm.morantest(TUD.p,nb.list.TUD.p)
 MC.TUD.p
 
 df250DC.p<-st_centroid(df250DC)
 nb.DC<-knn2nb(knearneigh(df250DC.p, k=20))
 nb.list.DC.p<-nb2listw(nb.DC, style = "B", zero.policy = TRUE)
-MC.DC.p<-moran.mc(df250DC.p$DCres,nb.list.DC.p,nsim = 999,zero.policy = TRUE)
+#MC.DC.p<-moran.mc(df250DC.p$DCres,nb.list.DC.p,nsim = 999,zero.policy = TRUE)
+MC.DC.p<-lm.morantest(DC.p,nb.list.DC.p)
 MC.DC.p
 
 # Correlograms
@@ -441,6 +443,9 @@ system.time(corPUD250<-spdep::sp.correlogram(nb.PUD,df250PUD.p$PUDres,order=20,m
 #plot(corPUD250)
 system.time(corTUD250<-spdep::sp.correlogram(nb.TUD,df250TUD.p$TUDres,order=20,method = "I", zero.policy = TRUE))
 system.time(corDC250<-spdep::sp.correlogram(nb.DC,df250DC.p$DCres,order=20,method = "I", zero.policy = TRUE))
+plot(corPUD250)
+plot(corTUD250)
+plot(corDC250)
 
 # Variogram https://www.aspexit.com/implementing-variograms-in-r/
 df250PUD.p<-as_Spatial(df250PUD.p)
