@@ -350,6 +350,18 @@ sapply(results2, function(x) sum(is.na(x))) # Checking to see if there are any N
 results<-left_join(results,results2,by = c("id","hres"))
 rm(results2,County)
 
+## PADUS open access areas
+PADUS<-st_read("Data/PADUS2_1Fee_StateCAESIL.gpkg")
+PADUS<-st_transform(PADUS,st_crs(results))
+PADUS$OA<-1 # Indicator variable for open access
+PADUS<-PADUS %>% 
+  dplyr::filter(Pub_Access=="OA") %>%
+  dplyr::select(OA,geom)
+system.time(results<-st_join(results,PADUS)) # 33hrs!! The PADUS vector layer has issues
+results<-unique(results)
+results<-results %>%
+  mutate(OA = if_else(is.na(OA), 0, OA))
+
 ## Write to disk
 results %>% 
   st_drop_geometry() %>% 
