@@ -45,6 +45,8 @@ Let's first explore some summary statistics.
 # source("./CA-recreation-coastal-hazards.R") # Produces "lresults.csv" in next line, loads data needed for all scripts
 #df<-read_csv("lresults.csv") # Results of "CA-recreation-coastal-hazards.R"
 df<-st_read("lresults.gpkg")
+df<-df %>% dplyr::filter(OA==1) # Only assessing known open access areas
+#df<-df %>% dplyr::filter(ud!=0) # Only assessing locations with visitors
 ```
 
 <style>
@@ -383,15 +385,15 @@ msummary(a, stars = TRUE)
 
 
 df250PUD<-dfs[dfs$source=="PUD"&dfs$hres==250,]
-df250PUD$PUDres<-resid(PUD.p)
+# df250PUD$PUDres<-resid(PUD.p)
 #st_write(df250PUD,"df250PUD.gpkg") # Exporting to view in QGIS
 
 df250TUD<-dfs[dfs$source=="TUD"&dfs$hres==250,]
-df250TUD$TUDres<-resid(TUD.p)
+# df250TUD$TUDres<-resid(TUD.p)
 #st_write(df250TUD,"df250TUD.gpkg") # Exporting to view in QGIS
 
 df250DC<-dfs[dfs$source=="DC"&dfs$hres==250,]
-df250DC$DCres<-resid(DC.p)
+# df250DC$DCres<-resid(DC.p)
 #st_write(df250DC,"df250DC.gpkg") # Exporting to view in QGIS
 
 # # Moran's I calculation https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html https://rpubs.com/FelipeSantos/LISA_tmap_geoda https://cran.r-project.org/web/packages/spdep/vignettes/nb_sf.html
@@ -470,7 +472,7 @@ plot(varTUD250,varTUD250fit)
 plot(varDC250,varDC250fit)
 
 ```
-
+Range of 9600 for PUD, 8200 for TUD, 800 for DC (meters)
 ```{r `OLS version, including cell`, echo=FALSE}
 # OLS.reg<-function(tipe,dv,v){ # tipe is either "PUD","TUD","DC" / dv is either "ud" or "ihsud" or "lnud" / v is a list of variables to include, referenced by column name
 #   models <- list()
@@ -529,7 +531,11 @@ plot(varDC250,varDC250fit)
 ```{r `CARBayes Poisson`, echo=FALSE}
 # Poisson, no spatial correlation modeling
 # sort(sapply(ls(), function(x) format(object.size(get(x)), unit = 'auto'))) # Memory used by objects, to determine how many workers are possible
-fit_model<-function(x) S.glm(ud ~ RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson", burnin=10000, n.sample=200000, thin=5)
+df250PUD<-df[df$source=="PUD"&df$hres==250,]
+df250TUD<-df[df$source=="TUD"&df$hres==250,]
+df250DC<-df[df$source=="DC"&df$hres==250,]
+
+fit_model<-function(x) S.glm(ud ~ RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+BOATING+CAMPGROUND+DSABLDACSS+FEE+FISHING+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson", burnin=10000, n.sample=200000, thin=5)
 system.time(glmPUD250.c1<-fit_model(df250PUD))
 glmPUD250.c1
 gc()
@@ -545,11 +551,11 @@ round(t(apply(beta.samples.matrix, 2, quantile, c(0.5, 0.025, 0.975))),5) # infe
 # Moran's I
 df250PUD<-cbind(df250PUD,glmPUD250.c1$residuals)
 df250PUD.p<-st_centroid(df250PUD) # K nearest neighbors only accepts points
-nb5.PUD<-knn2nb(knearneigh(df250PUD.p, k=5))
-nb.list.PUD.p<-nb2listw(nb5.PUD, style = "B", zero.policy = TRUE)
+nb.PUD<-knn2nb(knearneigh(df250PUD.p, k=20))
+nb.list.PUD.p<-nb2listw(nb.PUD, style = "B", zero.policy = TRUE)
 print(nb.list.PUD.p, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
 print(listw2mat(nb.list.PUD.p)[1:10, 1:10], digits = 3)
-MC.PUD.p<-moran.mc(df250PUD.p$pearson,nb.list.PUD.p,nsim = 999,zero.policy = TRUE)
+MC.PUD.p<-moran.mc(df250PUD.p$pearson,nb.list.PUD.p,nsim = 999,zero.policy = TRUE) # can't use lm.morantest as S.glm does not return lm objects
 MC.PUD.p
 # rm(glmPUD250)
 df250PUD$pearson<-NULL 
@@ -557,25 +563,28 @@ df250PUD$response<-NULL
 df250PUD.p$pearson<-NULL 
 df250PUD.p$response<-NULL
 
-# Poisson, spatial correlation modeling (using an arbitrary sample size)
-df250PUD.s<-slice_sample(df250PUD, n = 5000) # n random draws
+# Poisson, spatial correlation modeling (using an arbitrary sample proportion, p)
+p<-.25
+df250PUD.s<-slice_sample(df250PUD, prop = p) # proportion of random draws from sample
 df250PUD.s.p<-st_centroid(df250PUD.s)
 coords.df250PUD.s.p<-st_centroid(st_geometry(df250PUD.s.p))
 
-# nb5.PUD.s.p<-knn2nb(knearneigh(df250PUD.s.p, k=2), sym = TRUE) # Alternative formulation of neighbors, pretty similar to sphere of influence approach below
-# plot(nb5.PUD.s.p,coords.df250PUD.s.p)
+nb.PUD.s.p<-knn2nb(knearneigh(df250PUD.s.p, k=round((9600/250)*p)), sym = TRUE) # k formula dynamically adapts neighbor calculation based on sample proportion used in CAR and known range from variogram
+plot(nb.PUD.s.p,coords.df250PUD.s.p)
+nb.mat.PUD.s.p<-nb2mat(nb.PUD.s.p, style = "B", zero.policy = NULL)
 
-trinb.PUD.s.p<-tri2nb(coords.df250PUD.s.p) # This approach will create symmetric neighbors
-nbsoi.PUD.s.p<-graph2nb(soi.graph(trinb.PUD.s.p, coords.df250PUD.s.p), sym=TRUE)
-# plot(nb_soi.PUD.s.p,coords.df250PUD.s.p)
-nb.mat.PUD.s.p<-nb2mat(nbsoi.PUD.s.p, style = "B", zero.policy = NULL)
-colnames(nb.mat.PUD.s.p)<-rownames(nb.mat.PUD.s.p) # https://stackoverflow.com/questions/27304797/spatial-weights-asymmetric-adjacency-matrix
-isSymmetric(nb.mat.PUD.s.p)
+# trinb.PUD.s.p<-tri2nb(coords.df250PUD.s.p) # This approach will create symmetric neighbors, using sphere of influence approach
+# nbsoi.PUD.s.p<-graph2nb(soi.graph(trinb.PUD.s.p, coords.df250PUD.s.p), sym=TRUE)
+# # plot(nb_soi.PUD.s.p,coords.df250PUD.s.p)
+# nb.mat.PUD.s.p<-nb2mat(nbsoi.PUD.s.p, style = "B", zero.policy = NULL)
+# colnames(nb.mat.PUD.s.p)<-rownames(nb.mat.PUD.s.p) # https://stackoverflow.com/questions/27304797/spatial-weights-asymmetric-adjacency-matrix
+# isSymmetric(nb.mat.PUD.s.p)
 
 fit_model_CAR<-function(x) S.CARbym(ud ~ RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson",W=nb.mat.PUD.s.p, burnin=500000, n.sample=3000000, thin=5)
 #fit_model_CAR<-function(x) S.CARbym(ud ~ RockyShore+SandyBeach+Marshes+Armored+sumpop+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+RESTROOMS+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2, data = x, family = "poisson",W=nb.mat.PUD.s.p, burnin=500000, n.sample=2200000, thin=1)
 
 system.time(glmPUD250CAR.1<-fit_model_CAR(df250PUD.s))
+rPUD250c1<-glmPUD250CAR.1$residuals
 c1<-glmPUD250CAR.1$samples$beta
 rm(glmPUD250CAR.1)
 gc()
@@ -612,14 +621,15 @@ gelman.diag(beta.samples)
 # https://cran.r-project.org/web/packages/CARBayes/vignettes/CARBayes.pdf pg.22
 traceplot(c5[,6], smooth = TRUE) # Issues with convergence? https://m-clark.github.io/bayesian-basics/diagnostics.html
 
-
-
-
-
-## Recompute Moran's I
-
-# MC.PUD.p<-moran.mc(df250PUD.p$PUDres2,nb.list.PUD.p,nsim = 999,zero.policy = TRUE)
-# MC.PUD.p # Same spatial autocorrelation problem as running without random fields
+# Moran's I
+df250PUD.s<-cbind(df250PUD.s,rPUD250c1)
+df250PUD.s.p<-st_centroid(df250PUD.s) # K nearest neighbors only accepts points
+nb.PUD<-knn2nb(knearneigh(df250PUD.s.p, k=round((9600/250)*p)))
+nb.list.PUD.p<-nb2listw(nb.PUD, style = "B", zero.policy = TRUE)
+print(nb.list.PUD.p, zero.policy=TRUE) # https://github.com/r-spatial/spdep/issues/45
+print(listw2mat(nb.list.PUD.p)[1:10, 1:10], digits = 3)
+MC.PUD.p<-moran.mc(df250PUD.s$pearson,nb.list.PUD.p,nsim = 999,zero.policy = TRUE) # can't use lm.morantest as S.glm does not return lm objects
+MC.PUD.p
 ```
 
 ```{r `spaMM`, echo=FALSE}
