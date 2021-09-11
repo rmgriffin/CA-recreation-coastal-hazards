@@ -12,7 +12,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools","glmmfields", "R2BayesX", "BayesXsrc","CARBayes","coda","furrr","hglm","RANN","dbscan","pgirmess") 
+PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools","glmmfields", "R2BayesX", "BayesXsrc", "CARBayes", "coda", "furrr", "hglm", "RANN", "dbscan", "pgirmess", "geoR", "gridExtra", "DHARMa", "remotes", "spaMM","rcdd") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -20,6 +20,7 @@ for (p in PKG) {
     require(p,character.only = TRUE)}
 }
 rm(PKG,p)
+remotes::install_github("ropensci/NLMR")
 # install.packages("countreg", repos="http://R-Forge.R-project.org")
 # library(countreg)
 renv::snapshot()
@@ -449,7 +450,7 @@ plot(corPUD250)
 plot(corTUD250)
 plot(corDC250)
 
-# Variogram https://www.aspexit.com/implementing-variograms-in-r/
+# Variogram https://www.aspexit.com/implementing-variograms-in-r/ https://r-spatial.org/r/2016/02/14/gstat-variogram-fitting.html 
 df250PUD.p<-as_Spatial(df250PUD.p)
 df250TUD.p<-as_Spatial(df250TUD.p)
 df250DC.p<-as_Spatial(df250DC.p)
@@ -633,6 +634,41 @@ MC.PUD.p
 ```
 
 ```{r `spaMM`, echo=FALSE}
+df250PUD<-df[df$source=="PUD"&df$hres==250,]
+df250TUD<-df[df$source=="TUD"&df$hres==250,]
+df250DC<-df[df$source=="DC"&df$hres==250,]
+
+# Poisson, spatial correlation modeling (using an arbitrary sample proportion, p)
+p<-.1
+df250PUD.s<-slice_sample(df250PUD, prop = p) # proportion of random draws from sample
+df250PUD.s.p<-st_centroid(df250PUD.s)
+
+# Regular glm, no spatial autocorrelation
+
+
+# Matern random effect
+coords.df250PUD.s.p<-as.data.frame(st_coordinates(df250PUD.s.p))
+df250PUD.s<-cbind(df250PUD.s,coords.df250PUD.s.p)
+system.time(fit250PUD<-fitme(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+Matern(1|X+Y),data=df250PUD.s,family=poisson()))
+plotQQunif(fit250PUD)
+plotResiduals(fit250PUD)
+testSpatialAutocorrelation(fit250PUD,x=df250PUD.s$X,df250PUD.s$Y)
+
+# Conditional autoregressive
+#nb.PUD<-knn2nb(knearneigh(df250PUD.s.p, k=round((9600/250)*p)), sym = TRUE) # k formula dynamically adapts neighbor calculation based on sample proportion used in CAR and known range from variogram
+nb.PUD<-dnearneigh(df250PUD.s.p,0,9600)
+is.symmetric.nb(nb.PUD)
+nb.mat.PUD<-nb2mat(nb.PUD, style = "B", zero.policy = TRUE)
+colnames(nb.mat.PUD)<-rownames(nb.mat.PUD)
+df250PUD.s$gridcode<-seq(1,nrow(df250PUD.s))
+#system.time(fit250PUD<-fitme(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+adjacency(1|gridcode),data=df250PUD.s,family=poisson(),adjMatrix=nb.mat.PUD))
+system.time(fit250PUDCAR<-HLCor(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+adjacency(1|gridcode),data=df250PUD.s,family=poisson(),adjMatrix=nb.mat.PUD))
+summary(fit250PUD)
+plotQQunif(fit250PUDCAR)
+plotResiduals(fit250PUDCAR)
+testSpatialAutocorrelation(fit250PUDCAR,x=df250PUD.s$X,df250PUD.s$Y)
+
+# Negative binomial
 
 ```
 
