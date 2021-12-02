@@ -31,7 +31,7 @@ show_in_excel<-function(.data){ # Bruno Rodrigues
   fs::file_show(path=tmp)
 }
 
-# test credentials
+# test credentials 2
 
 ## Downloading data
 dir.create(file.path('Data'), recursive = TRUE)
