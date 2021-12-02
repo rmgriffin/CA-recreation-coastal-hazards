@@ -31,6 +31,8 @@ show_in_excel<-function(.data){ # Bruno Rodrigues
   fs::file_show(path=tmp)
 }
 
+# test credentials
+
 ## Downloading data
 dir.create(file.path('Data'), recursive = TRUE)
 folder_url<-"https://drive.google.com/open?id=1mBXEDzc2hBnOa2bxKmg6P9Oz8taR9rTt"
