@@ -12,7 +12,7 @@ knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
 #knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools","glmmfields", "R2BayesX", "BayesXsrc", "CARBayes", "coda", "furrr", "hglm", "RANN", "dbscan", "pgirmess", "geoR", "gridExtra", "DHARMa", "remotes", "spaMM","rcdd") 
+PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools","glmmfields", "R2BayesX", "BayesXsrc", "CARBayes", "coda", "furrr", "hglm", "RANN", "dbscan", "pgirmess", "geoR", "gridExtra", "DHARMa", "remotes", "spaMM","rcdd","RSpectra") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -188,6 +188,23 @@ knitr::kables(list(d1,d2,d3,d4,d5)) %>%
 ```
 User days by shoreline ESI class
 
+```{r `Adding variables`, echo=FALSE}
+## Adding variables
+# Do not transform count data DOI: https://doi.org/10.1111/j.2041-210X.2010.00021.x
+# For testing the significance of regression coefficients, go ahead and log‐transform count data https://doi.org/10.1111/2041-210X.12386
+df$ihsud<-log(df$ud + sqrt(df$ud^2 + 1)) # Inverse hyperbolic sine transformation of user days
+df$lnud<-log(df$ud+1) # Natural log (+1 for zeros) transformation of user days
+
+df$meanat2<-df$meanat^2 # Polynomial air temp
+df$RockyShoreI<-ifelse(df$RockyShore==0,0,1) # Indicator variables instead of lengths, presence/absence in a cell
+df$SandyBeachI<-ifelse(df$SandyBeach==0,0,1)
+df$MarshesI<-ifelse(df$Marshes==0,0,1)
+df$ArmoredI<-ifelse(df$Armored==0,0,1)
+df$TidalFlatI<-ifelse(df$TidalFlat==0,0,1)
+df$x3aI<-ifelse(df$x3a==0,0,1)
+df$x10aI<-ifelse(df$x10a==0,0,1)
+```
+
 ```{r `Dep Var regressions`, echo=FALSE}
 # regs<-function(rs,tipe,dv){ # tipe is either "PUD","TUD","DC" / rs is one of {25, 500, 1000} / dv is either "ud" or "ihsud" or "lnud"
 #   models <- list()
@@ -262,21 +279,6 @@ From a theoretical perspective shoreline visitation choice is not typically trea
 ```
 
 ```{r `glm Poisson`, echo=FALSE}
-## Adding variables
-# Do not transform count data DOI: https://doi.org/10.1111/j.2041-210X.2010.00021.x
-# For testing the significance of regression coefficients, go ahead and log‐transform count data https://doi.org/10.1111/2041-210X.12386
-df$ihsud<-log(df$ud + sqrt(df$ud^2 + 1)) # Inverse hyperbolic sine transformation of user days
-df$lnud<-log(df$ud+1) # Natural log (+1 for zeros) transformation of user days
-
-df$meanat2<-df$meanat^2 # Polynomial air temp
-df$RockyShoreI<-ifelse(df$RockyShore==0,0,1) # Indicator variables instead of lengths, presence/absence in a cell
-df$SandyBeachI<-ifelse(df$SandyBeach==0,0,1)
-df$MarshesI<-ifelse(df$Marshes==0,0,1)
-df$ArmoredI<-ifelse(df$Armored==0,0,1)
-df$TidalFlatI<-ifelse(df$TidalFlat==0,0,1)
-df$x3aI<-ifelse(df$x3a==0,0,1)
-df$x10aI<-ifelse(df$x10a==0,0,1)
-
 ## Regression across observation size
 
 Pois.reg<-function(tipe,dv,v){ # tipe is either "PUD","TUD","DC" / dv is either "ud" or "ihsud" or "lnud" / v is a list of variables to include, referenced by column name
@@ -386,15 +388,15 @@ msummary(a, stars = TRUE)
 
 
 df250PUD<-dfs[dfs$source=="PUD"&dfs$hres==250,]
-# df250PUD$PUDres<-resid(PUD.p)
+df250PUD$PUDres<-resid(PUD.p)
 #st_write(df250PUD,"df250PUD.gpkg") # Exporting to view in QGIS
 
 df250TUD<-dfs[dfs$source=="TUD"&dfs$hres==250,]
-# df250TUD$TUDres<-resid(TUD.p)
+df250TUD$TUDres<-resid(TUD.p)
 #st_write(df250TUD,"df250TUD.gpkg") # Exporting to view in QGIS
 
 df250DC<-dfs[dfs$source=="DC"&dfs$hres==250,]
-# df250DC$DCres<-resid(DC.p)
+df250DC$DCres<-resid(DC.p)
 #st_write(df250DC,"df250DC.gpkg") # Exporting to view in QGIS
 
 # # Moran's I calculation https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html https://rpubs.com/FelipeSantos/LISA_tmap_geoda https://cran.r-project.org/web/packages/spdep/vignettes/nb_sf.html
@@ -634,42 +636,95 @@ MC.PUD.p
 ```
 
 ```{r `spaMM`, echo=FALSE}
-df250PUD<-df[df$source=="PUD"&df$hres==250,]
-df250TUD<-df[df$source=="TUD"&df$hres==250,]
-df250DC<-df[df$source=="DC"&df$hres==250,]
 
-# Poisson, spatial correlation modeling (using an arbitrary sample proportion, p)
-p<-.1
-df250PUD.s<-slice_sample(df250PUD, prop = p) # proportion of random draws from sample
-df250PUD.s.p<-st_centroid(df250PUD.s)
+#Function variables: src {"PUD","TUD","DC"}, p {0>p<=1} an arbitrary sample proportion, 
+
+df250<-df[df$source=="PUD"&df$hres==250,]
+p<-.05
+
+# Poisson, spatial correlation modeling
+df250.s<-slice_sample(df250, prop = p) # proportion of random draws from sample
+df250.s.p<-st_centroid(df250.s)
 
 # Regular glm, no spatial autocorrelation
+fit250GLM<-glm(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2,data=df250.s,family="poisson")
+summary(fit250GLM)
 
+#plotQQunif(fit250GLM)
+#plotResiduals(fit250GLM)
+coords.df250.s.p<-as.data.frame(st_coordinates(df250.s.p))
+df250.s<-cbind(df250.s,coords.df250.s.p)
+testSpatialAutocorrelation(fit250GLM,x=df250.s$X,df250.s$Y)
+
+df250.s$GLMres<-residuals(fit250GLM)
+
+df250.sp<-as_Spatial(df250.s)
+
+var250GLM<-gstat::variogram(GLMres~1, data = df250.sp, cutoff = 20000, width = 250)
+plot(var250GLM)
+
+var250GLMfit<-gstat::fit.variogram(var250GLM, vgm(c("Nug","Exp", "Mat", "Sph", "Gau", "Ste", "Bes", "Pen", "Wav"))) # fits a model, choosing best - only using models that converge from vgm() list
+range<-var250GLMfit[2,3]
+plot(var250GLM, var250GLMfit)
+
+#show.vgms()
+
+# # Conditional autoregressive
+# #nb.PUD<-knn2nb(knearneigh(df250PUD.s.p, k=round((9600/250)*p)), sym = TRUE) # k formula dynamically adapts neighbor calculation based on sample proportion used in CAR and known range from variogram
+# nb<-dnearneigh(df250.s.p, d1=0,d2=range)
+# is.symmetric.nb(nb)
+# nb.mat<-nb2mat(nb, style = "B", zero.policy = TRUE)
+# colnames(nb.mat)<-rownames(nb.mat)
+# df250.s$gridcode<-seq(1,nrow(df250.s))
+# system.time(fit250CAR<-fitme(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+adjacency(1|gridcode),data=df250.s,family=poisson(),adjMatrix=nb.mat))
+# #system.time(fit250CAR<-HLCor(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+adjacency(1|gridcode),data=df250.s,family=poisson(),adjMatrix=nb.mat)) # Slow for large datasets compared to "fitme", see pg 12 https://cran.r-project.org/web/packages/spaMM/spaMM.pdf
+# summary(fit250CAR)
+# plotQQunif(fit250CAR)
+# plotResiduals(fit250CAR)
+# testSpatialAutocorrelation(fit250CAR,x=df250.s$X,df250.s$Y)
+# 
+# df250.s$CARres<-residuals(fit250CAR)
+# 
+# df250.sp<-as_Spatial(df250.s)
+# 
+# var250CAR<-gstat::variogram(CARres~1, data = df250.sp, cutoff = 20000)
+# plot(var250CAR)
+# 
+# var250CARfit<-gstat::fit.variogram(var250CAR, vgm(c("Nug", "Exp", "Mat", "Sph")))
+# var250CARfit
 
 # Matern random effect
-coords.df250PUD.s.p<-as.data.frame(st_coordinates(df250PUD.s.p))
-df250PUD.s<-cbind(df250PUD.s,coords.df250PUD.s.p)
-system.time(fit250PUD<-fitme(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+Matern(1|X+Y),data=df250PUD.s,family=poisson()))
-plotQQunif(fit250PUD)
-plotResiduals(fit250PUD)
-testSpatialAutocorrelation(fit250PUD,x=df250PUD.s$X,df250PUD.s$Y)
+system.time(fit250M<-fitme(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+Matern(1|X+Y),data=df250.s, fixed=list(nu=0.5), family=poisson()))
+summary(fit250M)
+plotQQunif(fit250M)
+plotResiduals(fit250M)
+testSpatialAutocorrelation(fit250M,x=df250.s$X,df250.s$Y)
+df250.s$Mres<-residuals(fit250M)
+df250.sp<-as_Spatial(df250.s)
 
-# Conditional autoregressive
-#nb.PUD<-knn2nb(knearneigh(df250PUD.s.p, k=round((9600/250)*p)), sym = TRUE) # k formula dynamically adapts neighbor calculation based on sample proportion used in CAR and known range from variogram
-nb.PUD<-dnearneigh(df250PUD.s.p,0,9600)
-is.symmetric.nb(nb.PUD)
-nb.mat.PUD<-nb2mat(nb.PUD, style = "B", zero.policy = TRUE)
-colnames(nb.mat.PUD)<-rownames(nb.mat.PUD)
-df250PUD.s$gridcode<-seq(1,nrow(df250PUD.s))
-#system.time(fit250PUD<-fitme(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+adjacency(1|gridcode),data=df250PUD.s,family=poisson(),adjMatrix=nb.mat.PUD))
-system.time(fit250PUDCAR<-HLCor(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+adjacency(1|gridcode),data=df250PUD.s,family=poisson(),adjMatrix=nb.mat.PUD))
-summary(fit250PUD)
-plotQQunif(fit250PUDCAR)
-plotResiduals(fit250PUDCAR)
-testSpatialAutocorrelation(fit250PUDCAR,x=df250PUD.s$X,df250PUD.s$Y)
+var250M<-gstat::variogram(Mres~1, data = df250.sp, cutoff = 20000, width = 500)
+plot(var250M)
 
-# Negative binomial
+var250Mfit<-gstat::fit.variogram(var250M, vgm(c("Nug", "Exp", "Mat", "Sph")))
+var250Mfit
+plot(var250M, var250Mfit)
 
+# # Negative binomial
+# system.time(fit250CARNB<-fitme(ud~RockyShore+SandyBeach+Marshes+Armored+TidalFlat+sumpop+sumpop2+rdist+BIKE_PATH+CAMPGROUND+DSABLDACSS+FEE+PARKING+PTH_BEACH+STRS_BEACH+WaterTrail+BayTrail+ChA+meanat+meanat2+adjacency(1|gridcode),data=df250.s,family=spaMM::negbin(shape = 1),adjMatrix=nb.mat))
+# summary(fit250CARNB)
+# plotQQunif(fit250CARNB)
+# plotResiduals(fit250CARNB)
+# testSpatialAutocorrelation(fit250CARNB,x=df250.s$X,df250.s$Y)
+# 
+# df250.s$CARres<-residuals(fit250CARNB)
+# 
+# df250.sp<-as_Spatial(df250.s)
+# 
+# var250CARNB<-gstat::variogram(CARres~1, data = df250.sp, cutoff = 20000)
+# plot(var250CARNB)
+# 
+# var250CARNBfit<-gstat::fit.variogram(var250CARNB, vgm(c("Nug", "Exp", "Mat", "Sph")))
+# var250CARNBfit
 ```
 
 ```{r `HGLM`, echo=FALSE}
