@@ -8,11 +8,9 @@ output:
 ```{r setup, include=FALSE, echo=FALSE}
 #rm(list=ls()) # Clears workspace
 options(scipen=999)
-knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
-#knitr::opts_knit$set(progress=FALSE)
 
 # Packages
-PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "ggpubr", "margins", "spdep", "shiny","adespatial", "ade4", "adegraphics", "maptools","glmmfields", "R2BayesX", "BayesXsrc", "CARBayes", "coda", "furrr", "hglm", "RANN", "dbscan", "pgirmess", "geoR", "gridExtra", "DHARMa", "remotes", "spaMM","rcdd","RSpectra") 
+PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "margins", "spdep", "shiny", "maptools","glmmfields", "R2BayesX", "BayesXsrc", "coda", "furrr", "hglm", "RANN", "dbscan", "pgirmess", "geoR", "gridExtra", "DHARMa", "remotes", "rcdd","RSpectra") # "adegraphics","ade4","adespatial","spaMM","ggpubr", "CARBayes"
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -25,6 +23,9 @@ remotes::install_github("ropensci/NLMR")
 # library(countreg)
 renv::snapshot()
 #renv::update()
+
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo = TRUE)
+#knitr::opts_knit$set(progress=FALSE)
 ```
 
 ## Analysis summary
