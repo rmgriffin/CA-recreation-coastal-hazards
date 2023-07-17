@@ -8,7 +8,7 @@ library(renv)
 ## Packages
 #Sys.setenv(RENV_PATHS_RTOOLS = "C:/rtools40/") # https://github.com/rstudio/renv/issues/225
 
-PKG <- c("sf","tidyverse","raster","exactextractr","googledrive", "rgdal","furrr")
+PKG <- c("sf","tidyverse","raster","exactextractr","googledrive", "rgdal","furrr","terra")
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -19,7 +19,6 @@ rm(p,PKG)
 
 ## Snapshot of libraries used
 renv::snapshot()
-
 
 ## Functions
 show_in_excel<-function(.data){ # Bruno Rodrigues
@@ -99,16 +98,16 @@ data.processing<-function(f,t){
   Pop<-raster("Data/dasymetric_us_20160208.tif") # Adjacent population derived from EPA population raster
   Pop.buff8m<-st_buffer(df,dist=12784) # Creating a (8 mile) buffered shapefile of hexagons
   Pop.buff8m<-st_transform(Pop.buff8m,st_crs(Pop))
-  system.time(Pop.buff8m$sumpop<-exact_extract(Pop, Pop.buff8m, "sum")) # Extracting sum of population raster for each buffered polygon 
+  system.time(Pop.buff8m$sumpop<-exact_extract(Pop, Pop.buff8m, max_cells_in_memory = 568471680, "sum")) # Extracting sum of population raster for each buffered polygon 
   Pop.buff8m<-Pop.buff8m[,c("id","sumpop")]
   Pop.buff8m$geometry<-NULL # Turns sf object into dataframe
   df<-merge(df,Pop.buff8m,"id")  # Merging to dataframe
   rm(Pop.buff8m) # Removing unneeded vars
   df$sumpop<-round(df$sumpop) # Rounding to whole individuals
   
-  Pop2<-df
+  Pop2<-df # Population within hexagon
   Pop2<-st_transform(Pop2,st_crs(Pop))
-  system.time(Pop2$sumpop2<-exact_extract(Pop, Pop2, "sum")) # Extracting sum of population raster for each buffered polygon 
+  system.time(Pop2$sumpop2<-exact_extract(Pop, Pop2, max_cells_in_memory = 568471680, "sum")) # Extracting sum of population raster for each buffered polygon 
   Pop2<-Pop2[,c("id","sumpop2")]
   Pop2$geometry<-NULL # Turns sf object into dataframe
   df<-merge(df,Pop2,"id")  # Merging to dataframe
@@ -208,6 +207,16 @@ data.processing<-function(f,t){
   SST.buff$geometry<-NULL # Turns sf object into dataframe
   df<-merge(df,SST.buff,"id") # Merging to dataframe
   rm(SST.buff,SSTf,SSTt) # Removing unneeded vars
+  
+  pci.map<-st_read("./Data/CA_blck_grp_2017.gpkg") %>% dplyr::select(GISJOIN) # 2017 per-capita income, last 12 mos, by census block group
+  pci.table<-read.csv("./Data/nhgis0002_ds233_20175_blck_grp.csv") %>% dplyr::select(GISJOIN,AH2RE001)
+  pci<-left_join(pci.map,pci.table,by="GISJOIN") %>% na.omit() # Handful of census block groups have NAs for per capita income
+  pci<-st_transform(pci, st_crs(df))
+  pci$GISJOIN<-NULL
+  #pci.t<-st_join(df,pci) # Hexagons may overlap multiple census blocks, rasterize and take mean
+  template = rast(vect(pci),res=50) # https://gis.stackexchange.com/questions/458049/convert-sfst-polygon-into-raster
+  pci.rast.50m<-rasterize(vect(pci), field = "AH2RE001", template)
+  system.time(df$inc<-exact_extract(pci.rast.50m, df, "mean")) # Introduces NAs for locations without income data
   
   # Transferring to long format with flickr/twitter id (PUD vs TUD)
   df<-gather(df,source,ud,c(PUD,TUD))
