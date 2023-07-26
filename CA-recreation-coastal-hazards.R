@@ -21,14 +21,14 @@ rm(p,PKG)
 renv::snapshot()
 
 ## Functions
-show_in_excel<-function(.data){ # Bruno Rodrigues
-  
-  tmp<-paste0(tempfile(), ".csv")
-  
-  write.csv(.data,tmp)
-  
-  fs::file_show(path=tmp)
-}
+# show_in_excel<-function(.data){ # Bruno Rodrigues
+#   
+#   tmp<-paste0(tempfile(), ".csv")
+#   
+#   write.csv(.data,tmp)
+#   
+#   fs::file_show(path=tmp)
+# }
 
 # test credentials 3
 
@@ -217,6 +217,10 @@ data.processing<-function(f,t){
   template = rast(vect(pci),res=50) # https://gis.stackexchange.com/questions/458049/convert-sfst-polygon-into-raster
   pci.rast.50m<-rasterize(vect(pci), field = "AH2RE001", template)
   system.time(df$inc<-exact_extract(pci.rast.50m, df, "mean")) # Introduces NAs for locations without income data
+  
+  cvi<-st_read("./Data/coastal_exposure_final.gpkg") %>% dplyr::select(exposure) # Coastal vulnerability index 
+  cvi<-st_transform(cvi, st_crs(df)) 
+  df2<-st_join(df,cvi,join=st_nearest_feature) # Join info of nearest feature
   
   # Transferring to long format with flickr/twitter id (PUD vs TUD)
   df<-gather(df,source,ud,c(PUD,TUD))
