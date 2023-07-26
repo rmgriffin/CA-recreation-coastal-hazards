@@ -59,7 +59,7 @@ data.processing<-function(f,t){
   Depvar<-Flickr[,c("PUD","TUD","id")]
   
   # Independent variables
-  ESI<-st_read("Data/ESIL_CA.gpkg") # ESI
+  ESI<-st_read("Data/ESIL_mergedCA_EPSG3310.gpkg") # ESI
   ESI<-st_transform(ESI, st_crs(Depvar))
   ESI<-ESI[,c("ESI","geom")]
   ESIi<-st_intersection(ESI,Depvar)
@@ -220,7 +220,7 @@ data.processing<-function(f,t){
   
   cvi<-st_read("./Data/coastal_exposure_final.gpkg") %>% dplyr::select(exposure) # Coastal vulnerability index 
   cvi<-st_transform(cvi, st_crs(df)) 
-  df2<-st_join(df,cvi,join=st_nearest_feature) # Join info of nearest feature
+  df<-st_join(df,cvi,join=st_nearest_feature) # Join info of nearest feature
   
   # Transferring to long format with flickr/twitter id (PUD vs TUD)
   df<-gather(df,source,ud,c(PUD,TUD))
@@ -342,12 +342,12 @@ rm(results2,resultsPUD,resultsTUD)
 
 ## Additional data processing
 sapply(results, function(x) sum(is.na(x))) # Checking to see if there are any NAs
-results$ud[is.na(results$ud)]<-0 # Replacing NAs in cell data with zero. Comment out and use next line if we want to drop them
+#results$ud[is.na(results$ud)]<-0 # Replacing NAs in cell data with zero. Comment out and use next line if we want to drop them
 #results<-results[complete.cases(results),] # Doesn't work with sf objects
-results<-results[!sf::st_is_empty(results), ] %>% na.omit() # https://stackoverflow.com/questions/52173746/return-complete-cases-of-sf-object-in-r drops a few observations where the precipitation and air temp rasters returned NAs due to inadequate coverage, results in different num obs for cell data, as 2019 coverage isn't as complete as the mean values derived from the longer time series relevant for the twitter and flickr data
+results<-results[!sf::st_is_empty(results), ] %>% na.omit() # https://stackoverflow.com/questions/52173746/return-complete-cases-of-sf-object-in-r drops NAs
 sapply(results, function(x) sum(is.na(x))) # Rechecking to see if there are any NAs
-# rescaling population to thousands and distances to km, to deal with model convergence issues
-results$sumpop<-results$sumpop/1000
+
+results$sumpop<-results$sumpop/1000 # rescaling population to thousands and distances to km, to deal with model convergence issues
 results$sumpop2<-results$sumpop2/1000
 results$rdist<-results$rdist/1000
 results$wtlddist<-results$wtlddist/1000
