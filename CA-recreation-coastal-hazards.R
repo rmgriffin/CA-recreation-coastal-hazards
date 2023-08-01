@@ -20,6 +20,8 @@ rm(p,PKG)
 ## Snapshot of libraries used
 renv::snapshot()
 
+rstudioapi::writeRStudioPreference("data_viewer_max_columns", 1000L) # More columns than 50 in the viewer 
+
 ## Functions
 # show_in_excel<-function(.data){ # Bruno Rodrigues
 #   
@@ -245,7 +247,7 @@ file.t<-c("./Data/TUD_2012-2017_1000m.gpkg",
 # Multicore implementation
 plan(multisession, workers = 3)
 # Executing data processing function
-system.time(results<-future_map2_dfr(file.f,file.t,data.processing,.id="hres")) # 1671.561s 
+system.time(results<-future_map2_dfr(file.f,file.t,data.processing,.id="hres")) # ~750s 
 rm(file.f,file.t)
 # Renaming hres id to reflect resolution
 results$hres<-ifelse(results$hres==1, 1000,
@@ -377,23 +379,25 @@ results<-left_join(results,results2,by = c("id","hres"))
 rm(results2,County)
 
 ## PADUS open access areas
-PADUS<-st_read("Data/PADUS2_1Fee_StateCAESIL.gpkg")
+PADUS<-st_read("./Data/PADUS3_0StateCA_intersectsPUD1000m.gpkg")
 PADUS<-st_transform(PADUS,st_crs(results))
 PADUS$OA<-1 # Indicator variable for open access
 PADUS<-PADUS %>% 
-  dplyr::filter(Pub_Access=="OA") %>%
+  #dplyr::filter(Pub_Access=="OA") %>% # Pre-filtered before import in QGIS
   dplyr::select(OA,geom)
-system.time(results<-st_join(results,PADUS)) # 33hrs!! The PADUS vector layer has issues
-results<-unique(results)
+system.time(results<-st_join(results,PADUS)) # 34 mins
+results<-unique(results) # Some hexagons may intersect multiple PADUS obs, only need to demonstrate intersection with one to be classed as open access. 
 results<-results %>%
   mutate(OA = if_else(is.na(OA), 0, OA))
 
 ## Write to disk
+st_write(results,"lresults.gpkg")
+
 results %>% 
   st_drop_geometry() %>% 
   write.csv("lresults.csv",row.names = FALSE)
 
-st_write(results,"lresults.gpkg")
+
 
 #unlink("./Data", recursive = TRUE) # Delete data directory
 
