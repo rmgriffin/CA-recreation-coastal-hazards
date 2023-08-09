@@ -338,6 +338,13 @@
       "Repository": "CRAN",
       "Hash": "79f14e53725f28900d936f692bfdd69f"
     },
+    "rstudioapi": {
+      "Package": "rstudioapi",
+      "Version": "0.15.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "5564500e25cffad9e22244ced1379887"
+    },
     "s2": {
       "Package": "s2",
       "Version": "1.1.4",
