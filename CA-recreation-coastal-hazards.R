@@ -224,6 +224,20 @@ data.processing<-function(f,t){
   cvi<-st_transform(cvi, st_crs(df)) 
   df<-st_join(df,cvi,join=st_nearest_feature) # Join info of nearest feature
   
+  vz<-st_read("./Data/FCC_cell/verizon_dataEPSG3310_CA.gpkg") # Cell service coverage
+  tm<-st_read("./Data/FCC_cell/tmobile_dataEPSG3310_CA.gpkg")
+  usc<-st_read("./Data/FCC_cell/UScellularEPSG3310_CA.gpkg")
+  att<-st_read("./Data/FCC_cell/att_dataEPSG3310_CA.gpkg")
+  vz<-vz %>% dplyr::select(geom) %>% mutate(vz = 1)
+  tm<-tm %>% dplyr::select(geom) %>% mutate(tm = 1)
+  usc<-usc %>% dplyr::select(geom) %>% mutate(usc = 1)
+  att<-att %>% dplyr::select(geom) %>% mutate(att = 1)
+  df<-st_join(df,vz) %>% mutate(vz = ifelse(is.na(vz), 0, vz)) %>% unique()
+  df<-st_join(df,tm) %>% mutate(tm = ifelse(is.na(tm), 0, tm)) %>% unique()
+  df<-st_join(df,usc) %>% mutate(usc = ifelse(is.na(usc), 0, usc)) %>% unique()
+  df<-st_join(df,att) %>% mutate(att = ifelse(is.na(att), 0, att)) %>% unique()
+  df$cell<-df$vz+df$tm+df$usc+df$att # Number of cell providers with coverage
+  
   # Transferring to long format with flickr/twitter id (PUD vs TUD)
   df<-gather(df,source,ud,c(PUD,TUD))
   df$meanprec<-ifelse(df$source=="PUD",df$meanprecf,df$meanprect)
