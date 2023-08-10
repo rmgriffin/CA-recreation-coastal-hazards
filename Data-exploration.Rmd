@@ -10,7 +10,7 @@ output:
 options(scipen=999)
 
 # Packages
-PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tmap", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "margins", "spdep", "shiny", "maptools","glmmfields", "R2BayesX", "BayesXsrc", "coda", "furrr", "hglm", "RANN", "dbscan", "pgirmess", "geoR", "gridExtra", "DHARMa", "remotes", "rcdd","RSpectra") # "adegraphics","ade4","adespatial","spaMM","ggpubr", "CARBayes"
+PKG <- c("gstat","tidyverse","knitr", "renv", "modelsummary", "kableExtra", "corrplot","RColorBrewer","lmtest","sandwich","pscl", "glmmTMB", "broom.mixed","vcd", "lmtest", "sf", "tigris", "patchwork", "rnaturalearth", "rgeos", "ggrepel", "margins", "spdep", "shiny", "maptools","glmmfields", "R2BayesX", "BayesXsrc", "coda", "furrr", "hglm", "RANN", "dbscan", "pgirmess", "geoR", "gridExtra", "DHARMa", "remotes", "rcdd","RSpectra") # "adegraphics","ade4","adespatial","spaMM","ggpubr", "CARBayes"
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -44,7 +44,7 @@ Let's first explore some summary statistics.
 
 ```{r data, include=FALSE}
 # source("./2019Celldata-processing.R") # Produces "DC2019.gpkg" - the cell phone data needed for the next line
-# source("./CA-recreation-coastal-hazards.R") # Produces "lresults.csv" in next line, loads data needed for all scripts
+# source("./CA-recreation-coastal-hazards.R") # Produces "lresults.csv" and "lresults.gpkg" in next lines, loads data needed for all scripts
 #df<-read_csv("lresults.csv") # Results of "CA-recreation-coastal-hazards.R"
 df<-st_read("lresults.gpkg")
 df<-df %>% dplyr::filter(OA==1) # Only assessing known open access areas
@@ -96,9 +96,9 @@ rm(f1,f2,f3,t1,t2,t3,summaryname)
 The data is characterized by a significant number of zeros, that increase as a percentage of the data at higher resolutions. Twitter data seems to produce more zeros than flickr or cell data at all resolutions. 
 
 ```{r continuous, echo=FALSE}
-datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Population within cell`=sumpop2) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean annual air temp (C)`=meanat) + (`Mean annual sea surface temp (C)`=meanSST) + (`Mean annual chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==250,],fmt="%.2f", title = 'Continuous Predictors 250m')
+datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles (thousands)`=sumpop) + (`Population within cell (thousands)`=sumpop2) + (`Per capita income`=inc) + (`Coastal vulnerability (1 - 5)`=exposure) + (`Cell networks present`=cell) + (`Distance to nearest wetland (km)`=wtlddist) + (`Annual precipitation (mm/yr)`=meanprec) + (`Air temp (C)`=meanat) + (`Sea surface temp (C)`=meanSST) + (`Chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==250,],fmt="%.2f", title = 'Continuous Predictors 250m')
 
-datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles`=sumpop) + (`Population within cell`=sumpop2) + (`Distance to nearest wetland (km)`=wtlddist) + (`Mean annual precipitation (mm/yr)`=meanprec) + (`Mean annual air temp (C)`=meanat) + (`Mean annual sea surface temp (C)`=meanSST) + (`Mean annual chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==1000,],fmt="%.2f", title = 'Continuous Predictors 1000m')
+datasummary((`Distance to nearest road (km)`=rdist ) + (`Population within 8 miles (thousands)`=sumpop) + (`Population within cell (thousands)`=sumpop2) + (`Per capita income`=inc) + (`Coastal vulnerability (1 - 5)`=exposure) + (`Cell networks present`=cell) + (`Distance to nearest wetland (km)`=wtlddist) + (`Annual precipitation (mm/yr)`=meanprec) + (`Air temp (C)`=meanat) + (`Sea surface temp (C)`=meanSST) + (`Chlorophyll a (mg/m3)`=ChA) ~ Mean + Median + SD + Histogram, data = df[df$hres==1000,],fmt="%.2f", title = 'Continuous Predictors 1000m')
 ```
 
 Summary statistics are shown for all potential continuous predictors. There is little variation across resolutions (except pop within cell), but note that the higher resolution observation picks up finer scale variation in the 'distance to X' variables.
@@ -132,7 +132,7 @@ Correlogram of ESI types. Not much correlation, though sheltered tidal flats and
 
 ```{r correlationYC, echo=FALSE, fig.align="center"}
 cormat<-df.nosf[df.nosf$hres==250,] %>%
-  dplyr::select(sumpop,sumpop2,rdist,BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH,WaterTrail,BayTrail,wtlddist,meanprec,meanat,meanSST,ChA,RockyShore,Armored,Marshes,SandyBeach,TidalFlat)
+  dplyr::select(inc,cell,exposure,sumpop,sumpop2,rdist,BIKE_PATH,BOATING,BT_FACIL_T,CAMPGROUND,DSABLDACSS,FEE,FISHING,PARKING,PTH_BEACH,RESTROOMS,STRS_BEACH,WaterTrail,BayTrail,wtlddist,meanprec,meanat,meanSST,ChA,RockyShore,Armored,Marshes,SandyBeach,TidalFlat)
 cormat<-round(cor(cormat),2)
 # rownames(cormat)<-c("Exposed rocky shore (1a)","Exposed solid man-made structures (1b)","Exposed wave-cut platforms in bedrock (2a)","Fine-to-medium grain sand beaches (3a)","Scarps and steep slopes in sand (3b)","Coarse-grained sand beaches (4)","Mixed sand and gravel beaches (5)","Gravel beaches (6a)","Riprap (6b)","Exposed tidal flats (7)","Sheltered rocky shores (8a)","Sheltered man-made structures (8b)","Sheltered riprap (8c)","Sheltered tidal flat (9a)","Vegetated low riverine banks (9b)","Salt and brackish marshes (10a)")
 # colnames(cormat)<-c("1a","1b","2a","3a","3b","4","5","6a","6b","7","8a","8b","8c","9a","9b","10a")
@@ -144,6 +144,12 @@ corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = 
 # png(height=1800, width=1800, file="corrplot.png", type = "cairo")
 # corrplot(cormat, method = "color", type = "lower", col = brewer.pal(n=8, name = "RdBu"),tl.col = "black", tl.srt = 45, mar = c(2, 2, 2, 2))
 # dev.off()
+
+df %>% mutate(armor = ifelse(Armored>0,"Armored","Non-armored")) %>% 
+  #as.factor(armor) %>% 
+  st_drop_geometry() %>% 
+  group_by(armor, hres) %>% 
+  summarise(Vulnerability = mean(exposure), n = length(exposure), CellPop = mean(sumpop))
 ```
 
 Correlogram of other predictors. Relationships are stable across resolutions; the above plots correlations at 250m resolution. Strong correlations (>|0.5|) are observed between:
