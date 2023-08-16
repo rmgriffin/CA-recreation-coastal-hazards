@@ -220,7 +220,7 @@ data.processing<-function(f,t){
   pci.rast.50m<-rasterize(vect(pci), field = "AH2RE001", template)
   system.time(df$inc<-exact_extract(pci.rast.50m, df, "mean")) # Introduces NAs for locations without income data
   
-  cvi<-st_read("./Data/coastal_exposure_final.gpkg") %>% dplyr::select(exposure) # Coastal vulnerability index 
+  cvi<-st_read("./Data/coastal_exposure_final.gpkg") %>% dplyr::select(R_wind, R_wave, R_surge, R_relief, exposure) # Coastal vulnerability index 
   cvi<-st_transform(cvi, st_crs(df)) 
   df<-st_join(df,cvi,join=st_nearest_feature) # Join info of nearest feature
   
@@ -403,6 +403,7 @@ system.time(results<-st_join(results,PADUS)) # 34 mins
 results<-unique(results) # Some hexagons may intersect multiple PADUS obs, only need to demonstrate intersection with one to be classed as open access. 
 results<-results %>%
   mutate(OA = if_else(is.na(OA), 0, OA))
+rm(PADUS)
 
 ## Write to disk
 st_write(results,"lresults.gpkg")
