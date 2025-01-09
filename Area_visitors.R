@@ -100,4 +100,13 @@ split_dfs<-split(df, ceiling(seq_len(nrow(df))/20)) # Breaking vector layer data
 
 #test<-batchapi(split_dfs[[1]])
 
-test<-map_df(split_dfs[1:2],batchapi, s = 1641513600000, e = 1735689599000) # Batch locations api call, 1/1/2024 - 1704067200000, 12/31/2024 - 1735689599000, 1/1/2023 - 1672531200000, 1/1/2022 - 1640995200000  
+xp<-map_df(split_dfs,batchapi, s = 1672531200000, e = 1735689599000) # Batch locations api call, 1/1/2024 - 1704067200000, 12/31/2024 - 1735689599000, 1/1/2023 - 1672531200000, 1/1/2022 - 1640995200000  
+
+# Data processing ---------------------------------------------------------
+xp<-as.data.frame(xp)
+xp$year<-year(xp$DATE_VALUE)
+xp<-xp %>% group_by(SEARCHOBJECTID,year) %>% summarise(visitors = sum(DEVICE_COUNT))
+
+dft<-merge(df,xp,by.x = "id",by.y = "SEARCHOBJECTID")
+
+write_sf(dft,"Data/ventel_areavisitors2324.gpkg")
