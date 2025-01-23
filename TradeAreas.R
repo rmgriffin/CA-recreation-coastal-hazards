@@ -41,7 +41,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
   dft$startDateTimeEpochMS<-s # 1704067200000 These don't seem to work as query variables
   dft$endDateTimeEpochMS<-e # 1706831999000 Says endDateTimeEpochMS must be within 90 days from startDateTimeEpochMS disregarding time of day, but this doesn't seem true. Any date is possible.
   dft<-dft %>% select(-PUD_YR_AVG) # Need more than the geometry column to create a feature collection using sf_geojson. Also, there is a limit of 20 features per request (even if it doesn't return results for 20 features).
-  dftj<-sf_geojson(dft[1:20,],atomise = FALSE) # Convert sf object to GeoJSON 
+  dftj<-sf_geojson(dft,atomise = FALSE) # Convert sf object to GeoJSON 
   
   dftj<-fromJSON(dftj) # Doesn't seem to like geojson formatting, switching to json
   dftj<-toJSON(dftj, auto_unbox = TRUE)
