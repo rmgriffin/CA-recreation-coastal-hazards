@@ -50,7 +50,11 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
   system.time(response <- POST(url, headers, body = dftj, encode = "json", query = list(
     # includeHeaders = FALSE, # Remove headers - potentially useful for batching
     # returnDeviceCountByGeoHash = TRUE, # "If true, the geoHashDeviceCount and geoHashWidthHeights fields are populated per feature" - don't see this. It does return "searchobjectid" in the response psv that corresponds to a given "id" in the json properties
-    # exportSchema = "BEST_EVENING_AND_DAYTIME_COMMON_CLUSTERS_PER_DEVICE",
+    #decisionLocationTypes = list(c("LATLNG","CBG")),
+    decisionLocationTypes = "CBG",
+    #includeAdditionalCbgInfo = TRUE,
+    #includeGeometryWithCbgInfo = TRUE, # Geometry of CBG for GIS
+    exportSchema = "EVENING_COMMON_CLUSTERS",
     compressOutputFiles = FALSE, # Compressed outputs?
     responseType = "EXPORT"  # Requesting an export response
   )))
@@ -72,7 +76,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
     } else if (status_content$status == "FAILED") {
       stop("Export request failed. Please try again.")
     } else {
-      base::cat("Export is still in progress. Status:", status_content$status, "\n")
+      base::cat("Export is still in progress. Status:", round(status_content$requestDurationSeconds/60,2),"m", "\n")
     }
   }
   
