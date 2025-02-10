@@ -8,7 +8,7 @@ library(renv)
 ## Packages
 #Sys.setenv(RENV_PATHS_RTOOLS = "C:/rtools40/") # https://github.com/rstudio/renv/issues/225
 
-PKG <- c("R.utils","httr","tidyverse","jsonlite","sf","geojsonsf","lwgeom") 
+PKG <- c("R.utils","httr","tidyverse","jsonlite","sf","geojsonsf","lwgeom","furrr","arrow") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -36,7 +36,7 @@ df<-st_cast(df,"POLYGON") # Switch from multi-polygon to polygon
 df$id<-seq(1,nrow(df),1) # Seems like this needs to be explicitly "id" to pass along to the API to get it to return it as "searchobjectid" in the response psv
 
 # API call -------------------------------------------------------------
-batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to api, gets returned data, and merges back with sf object
+batchapi<-function(dft,s,e,fname){ # Function converts sf object to json, passes to api, gets returned data, and merges back with sf object
   
   dft$startDateTimeEpochMS<-s # 1704067200000 These don't seem to work as query variables
   dft$endDateTimeEpochMS<-e # 1706831999000 Says endDateTimeEpochMS must be within 90 days from startDateTimeEpochMS disregarding time of day, but this doesn't seem true. Any date is possible.
@@ -52,7 +52,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
     # returnDeviceCountByGeoHash = TRUE, # "If true, the geoHashDeviceCount and geoHashWidthHeights fields are populated per feature" - don't see this. It does return "searchobjectid" in the response psv that corresponds to a given "id" in the json properties
     #decisionLocationTypes = list(c("LATLNG","CBG")),
     decisionLocationTypes = "CBG",
-    #includeAdditionalCbgInfo = TRUE,
+    includeAdditionalCbgInfo = TRUE,
     #includeGeometryWithCbgInfo = TRUE, # Geometry of CBG for GIS
     exportSchema = "EVENING_COMMON_CLUSTERS",
     compressOutputFiles = FALSE, # Compressed outputs?
@@ -76,7 +76,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
     } else if (status_content$status == "FAILED") {
       stop("Export request failed. Please try again.")
     } else {
-      base::cat("Export is still in progress. Status:", round(status_content$requestDurationSeconds/60,2),"m", "\n")
+      base::cat("Export is still in progress. Status:", round(status_content$requestDurationSeconds/60,2),"m", "\n",sep = c(" ","","",""))
     }
   }
   
@@ -93,17 +93,33 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
                 file.path("tData", sub("\\.gz$", "", file_name)), # Elements in a list that are named based on the API call  
                 function(file) {read.csv(file, sep = "|", header = TRUE)})) # Reading files in
   
-  invisible(file.remove(list.files(path = "tData", full.names = TRUE)))
+  invisible(file.remove(list.files(path = "tData", pattern = "\\.psv$", full.names = TRUE)))
   
-  xp<-merge(xp,dft, by.x = "FEATUREID", by.y = "id")
+  # Ensure xp is not NULL before proceeding
+  if (is.null(xp) || nrow(xp) == 0) {
+    warning("No data returned from API for this batch. Skipping...")
+    return(NULL)  # Return NULL to avoid stopping execution
+  }
   
-  return(xp)
+  #xp<-merge(xp,dft, by.x = "FEATUREID", by.y = "id") # %>% dplyr::select(FEATUREID,DEVICEID,DAY_IN_FEATURE,EARLIEST_OBSERVATION_OF_DAY,LATEST_OBSERVATION_OF_DAY,LATITUDE,LONGITUDE,CENSUS_BLOCK_GROUP_ID,startDateTimeEpochMS,endDateTimeEpochMS,DEVICES_WITH_DECISION_IN_CBG_COUNT,TOTAL_POPULATION)
+  xp<-xp %>% dplyr::select(FEATUREID,DEVICEID,DAY_IN_FEATURE,EARLIEST_OBSERVATION_OF_DAY,LATEST_OBSERVATION_OF_DAY,CENSUS_BLOCK_GROUP_ID,DEVICES_WITH_DECISION_IN_CBG_COUNT,TOTAL_POPULATION)
+  
+  write_parquet(xp, paste0("tData/",fname,".parquet"))
 }
 
 # Batch locations call to API -------------------------------------------------------
 split_dfs<-split(df, ceiling(seq_len(nrow(df))/20)) # Breaking vector layer dataframe into 20 row subsets held in a list
+#test<-batchapi(split_dfs[[1]],fname = 1, s = 1672531200000, e = 1735689599000)
 
-test<-batchapi(split_dfs[[1]],s = 1672531200000, e = 1735689599000)
+plan(multisession, workers = 2) # Initializing parallel processing, seems like the API can only handle two concurrent connections
+system.time(
+  xp<-future_imap(split_dfs, function(data,index){ # Batch locations api call, 1/1/2024 - 1704067200000, last MS of 12/31/2024 - 1735689599999
+    batchapi(data, fname = as.character(index), s = 1704067200000, e = 1735689599999)
+  },.options = furrr_options(packages = c("R.utils", "httr", "tidyverse", "jsonlite", 
+                                          "sf", "geojsonsf", "lwgeom", "furrr", "arrow"))))   
+
+
+xpt<-map_dfr(list.files("tData/", pattern = "\\.parquet$", full.names = TRUE), read_parquet)
 
 #xp<-map_df(split_dfs,batchapi, s = 1672531200000, e = 1735689599000) # Batch locations api call, 1/1/2024 - 1704067200000, 12/31/2024 - 1735689599000, 1/1/2023 - 1672531200000, 1/1/2022 - 1640995200000  
 
