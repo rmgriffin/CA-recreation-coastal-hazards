@@ -8,7 +8,7 @@ library(renv)
 ## Packages
 #Sys.setenv(RENV_PATHS_RTOOLS = "C:/rtools40/") # https://github.com/rstudio/renv/issues/225
 
-PKG<-c("R.utils","httr","tidyverse","jsonlite","sf","geojsonsf","lwgeom","furrr","arrow") 
+PKG<-c("R.utils","httr","tidyverse","jsonlite","sf","geojsonsf","lwgeom","furrr","arrow","stringr") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -100,8 +100,7 @@ batchapi<-function(dft,s,e,fname){ # Function converts sf object to json, passes
   
   invisible(unlink(downloaded_files)) # Deleting downloaded psv files
   
-  # Ensure xp is not NULL before proceeding
-  if (is.null(xp) || nrow(xp) == 0) {
+  if (is.null(xp) || nrow(xp) == 0) { # Handles no data situations where there are no observations in the provided polygon(s)
     warning("No data returned from API for this batch. Skipping...")
     return(NULL)  # Return NULL to avoid stopping execution
   }
@@ -117,11 +116,63 @@ split_dfs<-split(df, ceiling(seq_len(nrow(df))/20)) # Breaking vector layer data
 #test<-batchapi(split_dfs[[1]],fname = 1, s = 1672531200000, e = 1735689599000)
 
 plan(multisession, workers = 2) # Initializing parallel processing, seems like the API can only handle two concurrent connections
-system.time(
-  xp<-future_imap(split_dfs, function(data,index){ # Batch locations api call, 1/1/2024 - 1704067200000, last MS of 12/31/2024 - 1735689599999
-    batchapi(data, fname = as.character(index), s = 1704067200000, e = 1735689599999)
-  },.options = furrr_options(packages = c("R.utils", "httr", "tidyverse", "jsonlite", 
-                                          "sf", "geojsonsf", "lwgeom", "furrr", "arrow"))))   
+
+identify_processed_files<-function(output_dir) { # Identifies indices already downloaded
+  files<-list.files(output_dir, pattern = "\\.parquet$", full.names = FALSE) # List all files with .parquet extension
+  processed_indices<-str_remove(files, "\\.parquet$") # Extract file names without extensions to get processed indices
+  return(processed_indices)
+}
+
+# Function to process elements with automatic restart of unprocessed elements
+process_batches <- function(split_dfs, output_dir, max_retries = 10) {
+  retries <- 0
+  unprocessed_indices <- names(split_dfs) # Initial list of all indices
+  
+  while (retries < max_retries && length(unprocessed_indices) > 0) {
+    cat("Attempting to process the following batches:", unprocessed_indices, "\n")
+    
+    # Identify already-processed files
+    processed_indices <- identify_processed_files(output_dir)
+    unprocessed_indices <- setdiff(names(split_dfs), processed_indices)
+    
+    # Process only unprocessed elements
+    future_imap(
+      split_dfs[unprocessed_indices],
+      function(data, index) {
+        tryCatch(
+          {
+            batchapi(data, fname = as.character(index), s = 1704067200000, e = 1735689599999)
+          },
+          error = function(e) {
+            warning(paste("Error processing index", index, ":", e$message))
+          }
+        )
+      },
+      .options = furrr_options(packages = c("R.utils", "httr", "tidyverse", "jsonlite", 
+                                            "sf", "geojsonsf", "lwgeom", "furrr", "arrow"))
+    )
+    
+    # Re-check for unprocessed files after a round
+    processed_indices <- identify_processed_files(output_dir)
+    unprocessed_indices <- setdiff(names(split_dfs), processed_indices)
+    
+    retries <- retries + 1
+  }
+  
+  if (length(unprocessed_indices) > 0) {
+    cat("Some batches could not be processed after", max_retries, "retries:", unprocessed_indices, "\n")
+  } else {
+    cat("All batches processed successfully!\n")
+  }
+}
+
+process_batches(split_dfs, output_dir = "tData/")
+
+# system.time(
+#   xp<-future_imap(split_dfs[201:14492], function(data,index){ # Batch locations api call, 1/1/2024 - 1704067200000, last MS of 12/31/2024 - 1735689599999
+#     batchapi(data, fname = as.character(index), s = 1704067200000, e = 1735689599999)
+#   },.options = furrr_options(packages = c("R.utils", "httr", "tidyverse", "jsonlite", 
+#                                           "sf", "geojsonsf", "lwgeom", "furrr", "arrow"))))   
 
 
 xpt<-map_dfr(list.files("tData/", pattern = "\\.parquet$", full.names = TRUE), read_parquet)
