@@ -40,6 +40,7 @@ batchapi<-function(dft,s,e,fname){ # Function converts sf object to json, passes
   
   dft$startDateTimeEpochMS<-s # 1704067200000 These don't seem to work as query variables
   dft$endDateTimeEpochMS<-e # 1706831999000 Says endDateTimeEpochMS must be within 90 days from startDateTimeEpochMS disregarding time of day, but this doesn't seem true. Any date is possible.
+  dft$excludeFlags<-25216 # Corresponds to removing
   # dft$startDateTimeEpochMS<-1704067200000
   # dft$endDateTimeEpochMS<-1735689599999
   dft<-dft %>% select(-PUD_YR_AVG) # Need more than the geometry column to create a feature collection using sf_geojson. Also, there is a limit of 20 features per request (even if it doesn't return results for 20 features).
@@ -113,9 +114,11 @@ batchapi<-function(dft,s,e,fname){ # Function converts sf object to json, passes
 
 # Batch locations call to API -------------------------------------------------------
 split_dfs<-split(df, ceiling(seq_len(nrow(df))/20)) # Breaking vector layer dataframe into 20 row subsets held in a list
-#test<-batchapi(split_dfs[[1]],fname = 1, s = 1672531200000, e = 1735689599000)
+#test<-batchapi(split_dfs[[1021]],fname = 1, s = 1704067200000, e = 1735689599999)
 
+plan(sequential)
 plan(multisession, workers = 2) # Initializing parallel processing, seems like the API can only handle two concurrent connections
+set.seed(12)
 
 identify_processed_files<-function(output_dir) { # Identifies indices already downloaded
   files<-list.files(output_dir, pattern = "\\.parquet$", full.names = FALSE) # List all files with .parquet extension
@@ -124,37 +127,36 @@ identify_processed_files<-function(output_dir) { # Identifies indices already do
 }
 
 # Function to process elements with automatic restart of unprocessed elements
-process_batches <- function(split_dfs, output_dir, max_retries = 10) {
+process_batches <- function(t_dfs, output_dir, max_retries = 2) {
   retries <- 0
-  unprocessed_indices <- names(split_dfs) # Initial list of all indices
+  unprocessed_indices <- names(t_dfs) # Initial list of all indices
   
-  while (retries < max_retries && length(unprocessed_indices) > 0) {
-    cat("Attempting to process the following batches:", unprocessed_indices, "\n")
+  while (retries < max_retries) {
+    #cat("Attempting to process the following batches:", unprocessed_indices, "\n")
+    cat("Current retry count:", retries, "\n")
     
     # Identify already-processed files
     processed_indices <- identify_processed_files(output_dir)
-    unprocessed_indices <- setdiff(names(split_dfs), processed_indices)
+    unprocessed_indices <- setdiff(names(t_dfs), processed_indices)
+    cat("Remaining unprocessed indices:", unprocessed_indices, "\n")
     
     # Process only unprocessed elements
     future_imap(
-      split_dfs[unprocessed_indices],
+      t_dfs[unprocessed_indices],
       function(data, index) {
+        cat("Processing index:", index, "\n")  # Print the current index
         tryCatch(
           {
             batchapi(data, fname = as.character(index), s = 1704067200000, e = 1735689599999)
           },
           error = function(e) {
-            warning(paste("Error processing index", index, ":", e$message))
+            cat(paste("Error processing index", index, ":", e$message, "\n"))
           }
         )
       },
       .options = furrr_options(packages = c("R.utils", "httr", "tidyverse", "jsonlite", 
-                                            "sf", "geojsonsf", "lwgeom", "furrr", "arrow"))
+                                            "sf", "geojsonsf", "lwgeom", "furrr", "arrow"),seed = TRUE),.progress = TRUE
     )
-    
-    # Re-check for unprocessed files after a round
-    processed_indices <- identify_processed_files(output_dir)
-    unprocessed_indices <- setdiff(names(split_dfs), processed_indices)
     
     retries <- retries + 1
   }
@@ -166,18 +168,19 @@ process_batches <- function(split_dfs, output_dir, max_retries = 10) {
   }
 }
 
-process_batches(split_dfs, output_dir = "tData/")
+system.time(process_batches(split_dfs, output_dir = "tData/"))
+#process_batches(split_dfs[399], output_dir = "tData/")
 
 # system.time(
-#   xp<-future_imap(split_dfs[201:14492], function(data,index){ # Batch locations api call, 1/1/2024 - 1704067200000, last MS of 12/31/2024 - 1735689599999
+#   xp<-future_imap(split_dfs[900:7000], function(data,index){ # Batch locations api call, 1/1/2024 - 1704067200000, last MS of 12/31/2024 - 1735689599999
 #     batchapi(data, fname = as.character(index), s = 1704067200000, e = 1735689599999)
-#   },.options = furrr_options(packages = c("R.utils", "httr", "tidyverse", "jsonlite", 
-#                                           "sf", "geojsonsf", "lwgeom", "furrr", "arrow"))))   
+#   },.options = furrr_options(packages = c("R.utils", "httr", "tidyverse", "jsonlite",
+#                                           "sf", "geojsonsf", "lwgeom", "furrr", "arrow"))))
 
 
-xpt<-map_dfr(list.files("tData/", pattern = "\\.parquet$", full.names = TRUE), read_parquet)
+#xpt<-map_dfr(list.files("tData/", pattern = "\\.parquet$", full.names = TRUE), read_parquet)
 
 #xp<-map_df(split_dfs,batchapi, s = 1672531200000, e = 1735689599000) # Batch locations api call, 1/1/2024 - 1704067200000, 12/31/2024 - 1735689599000, 1/1/2023 - 1672531200000, 1/1/2022 - 1640995200000  
-
+system.time(xp<-map_df(split_dfs[399],batchapi, s = 1704067200000, e = 1735689599000))
 
 
