@@ -1,14 +1,13 @@
 ## Use this to start every program.  This clears out previous information from memory
 rm(list=ls())
 
-## Initalize renv for library lockfile
-library(renv)
+# Packages ----------------------------------------------------------------
+library(renv) # Initalize renv for library lockfile
 #renv::init()
 
-## Packages
 #Sys.setenv(RENV_PATHS_RTOOLS = "C:/rtools40/") # https://github.com/rstudio/renv/issues/225
 
-PKG <- c("R.utils","httr","tidyverse","jsonlite","sf","geojsonsf","lwgeom") 
+PKG <- c("R.utils","httr","tidyverse","jsonlite","sf","geojsonsf","lwgeom","furrr") 
 
 for (p in PKG) {
   if(!require(p,character.only = TRUE)) {  
@@ -38,9 +37,10 @@ df$id<-seq(1,nrow(df),1) # Seems like this needs to be explicitly "id" to pass a
 # API call -------------------------------------------------------------
 batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to api, gets returned data, and merges back with sf object
 
-  dft$startDateTimeEpochMS<-s # These don't seem to work as query variables
-  dft$endDateTimeEpochMS<-e # Says endDateTimeEpochMS must be within 90 days from startDateTimeEpochMS disregarding time of day, but this doesn't seem true. Any date is possible. 
+  dft$startDateTimeEpochMS<-s # These don't work as query variables
+  dft$endDateTimeEpochMS<-e # 
   dft<-dft %>% select(-PUD_YR_AVG) # Need more than the geometry column to create a feature collection using sf_geojson. Also, there is a limit of 20 features per request (even if it doesn't return results for 20 features).
+  #dft$returnDeviceCountByGeoHash<-TRUE # Doesn't seem to work as a feature property or query property
   dftj<-sf_geojson(dft,atomise = FALSE) # Convert sf object to GeoJSON 
   
   dftj<-fromJSON(dftj) # Doesn't seem to like geojson formatting, switching to json
@@ -49,7 +49,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
   # Export query (asynchronous)
   system.time(response <- POST(url, headers, body = dftj, encode = "json", query = list(
     #includeHeaders = FALSE, # Remove headers - potentially useful for batching
-    returnDeviceCountByGeoHash = TRUE, # "If true, the geoHashDeviceCount and geoHashWidthHeights fields are populated per feature" - don't see this. It does return "searchobjectid" in the response psv that corresponds to a given "id" in the json properties
+    #returnDeviceCountByGeoHash = TRUE, # "If true, the geoHashDeviceCount and geoHashWidthHeights fields are populated per feature" - don't see this
     compressOutputFiles = FALSE, # Compressed outputs?
     responseType = "EXPORT"  # Requesting an export response
   )))
@@ -71,7 +71,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
     } else if (status_content$status == "FAILED") {
       stop("Export request failed. Please try again.")
     } else {
-      base::cat("Export is still in progress. Status:", status_content$status, "\n")
+      base::cat("Export is still in progress. Status:", round(status_content$requestDurationSeconds/60,2),"m","\n",sep = c(" ","","",""))
     }
   }
   
@@ -88,7 +88,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
                 file.path("tData", sub("\\.gz$", "", file_name)), # Elements in a list that are named based on the API call  
                 function(file) {read.csv(file, sep = "|", header = TRUE)})) # Reading files in
   
-  invisible(file.remove(list.files(path = "tData", full.names = TRUE)))
+  #invisible(file.remove(list.files(path = "tData", full.names = TRUE)))
   
   xp<-merge(xp,dft, by.x = "SEARCHOBJECTID", by.y = "id") %>% filter(DATE_TYPE=="DAY") %>% select(-DATE_TYPE)
 
@@ -97,16 +97,18 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
 
 # Batch locations call to API -------------------------------------------------------
 split_dfs<-split(df, ceiling(seq_len(nrow(df))/20)) # Breaking vector layer dataframe into 20 row subsets held in a list
-
 #test<-batchapi(split_dfs[[1]])
 
-xp<-map_df(split_dfs,batchapi, s = 1672531200000, e = 1735689599000) # Batch locations api call, 1/1/2024 - 1704067200000, 12/31/2024 - 1735689599000, 1/1/2023 - 1672531200000, 1/1/2022 - 1640995200000  
+plan(multisession, workers = 2) # Initializing parallel processing, seems like the API can only handle two concurrent connections
+system.time(
+  xp<-future_map_dfr(split_dfs,batchapi, s = 1704067200000, e = 1735689599999,.options = furrr_options(packages = c("httr", "jsonlite", "sf", "dplyr"),seed = TRUE)) # Batch locations api call, 1/1/2024 - 1704067200000, last MS of 12/31/2024 - 1735689599999  
+)
+st_write(xp,"Data/ventel_areavisitors1000m24.gpkg")
+system.time(
+  xp<-future_map_dfr(split_dfs,batchapi, s = 1672531200000, e = 1704067199999,.options = furrr_options(packages = c("httr", "jsonlite", "sf", "dplyr"),seed = TRUE)) # Batch locations api call, 1/1/2023 - 1672531200000, last MS of 12/31/2023 - 1704067199999
+)
+st_write(xp,"Data/ventel_areavisitors1000m23.gpkg")
 
 # Data processing ---------------------------------------------------------
-xp<-as.data.frame(xp)
-xp$year<-year(xp$DATE_VALUE)
-xp<-xp %>% group_by(SEARCHOBJECTID,year) %>% summarise(visitors = sum(DEVICE_COUNT))
 
-dft<-merge(df,xp,by.x = "id",by.y = "SEARCHOBJECTID")
 
-write_sf(dft,"Data/ventel_areavisitors2324.gpkg")
