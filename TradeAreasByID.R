@@ -94,7 +94,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
   
   rid<-as.list(unique(xp$REGISTRATION_ID)) # unique ids seen in the supplied 
   
-  # dft$includeRegistrationIDs<-rid[[2]]
+  # dft$includeRegistrationIDs<-paste(rid[1:2000],collapse = ", ") # Function in the next line can't handle lists, so it needs to be converted into a character representation of a list
   # dftj<-sf_geojson(dft,atomise = FALSE) # Convert sf object to GeoJSON
   # 
   # dftj<-fromJSON(dftj) # Doesn't seem to like geojson formatting, switching to json
@@ -157,7 +157,7 @@ batchapi<-function(dft,s,e){ # Function converts sf object to json, passes to ap
 # Batch locations call to API -------------------------------------------------------
 split_dfs<-split(df, ceiling(seq_len(nrow(df))/10)) # Lowest export limit is 10 features in the two APIs queried (area observations and trade areas)
 
-test<-batchapi(split_dfs[[3]],s = 1704067200000, e = 1704672000000)
+test<-batchapi(split_dfs[[4]],s = 1704067200000, e = 1704672000000)
 
 #xp<-map_df(split_dfs,batchapi, s = 1672531200000, e = 1735689599000) # Batch locations api call, 1/1/2024 - 1704067200000, 12/31/2024 - 1735689599000, 1/1/2023 - 1672531200000, 1/1/2022 - 1640995200000  
 
